@@ -1,0 +1,24 @@
+# Node
+node_modules/
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Env — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Rust / Soroban
+contracts/target/
+target/
+*.wasm
+
+# Stellar CLI identities
+.stellar/
+.soroban/
+
+# Misc
+.DS_Store
+*.log

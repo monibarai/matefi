@@ -1,0 +1,23 @@
+name: matefi
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: matefi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: matefi
+      POSTGRES_PASSWORD: matefi
+      POSTGRES_DB: matefi
+    ports:
+      - "5432:5432"
+    volumes:
+      - matefi-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matefi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  matefi-pgdata:
