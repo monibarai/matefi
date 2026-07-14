@@ -1,0 +1,36 @@
+# MateFi — Soroban contracts workspace
+#
+# NOTE on SDK version: the original spec pinned soroban-sdk 21.0.0, which predates
+# the wasm32v1-none target and does not produce valid wasm with Rust 1.95 +
+# stellar CLI 26 (Rust >= 1.82 emits reference-types/multivalue sections that
+# protocol-21-era tooling rejects). We use soroban-sdk 26.x, which pairs with
+# stellar CLI 26 and builds for wasm32v1-none. All contract interfaces follow
+# the spec (see each crate's lib.rs for documented deviations).
+
+[workspace]
+members = [
+    "match_registry",
+    "escrow_vault",
+    "prediction_pool",
+    "oracle_gateway",
+    "settlement",
+]
+resolver = "2"
+
+[workspace.dependencies]
+soroban-sdk = { version = "26.0.1" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+# Useful for debugging failed txs on testnet without bloating release wasm.
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
