@@ -84,10 +84,16 @@ impl EscrowVault {
             panic_with_error!(&env, Error::AlreadyInitialized);
         }
         env.storage().instance().set(&DataKey::Initialized, &true);
-        env.storage().instance().set(&DataKey::UsdcToken, &usdc_token);
-        env.storage().instance().set(&DataKey::Settlement, &settlement);
+        env.storage()
+            .instance()
+            .set(&DataKey::UsdcToken, &usdc_token);
+        env.storage()
+            .instance()
+            .set(&DataKey::Settlement, &settlement);
         env.storage().instance().set(&DataKey::Registry, &registry);
-        env.storage().instance().set(&DataKey::Pool, &prediction_pool);
+        env.storage()
+            .instance()
+            .set(&DataKey::Pool, &prediction_pool);
         env.storage().instance().set(&DataKey::Treasury, &treasury);
     }
 

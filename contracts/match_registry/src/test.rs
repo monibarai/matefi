@@ -55,8 +55,21 @@ fn setup(env: &Env) -> Setup<'_> {
     let treasury = Address::generate(env);
 
     // Initialize all contracts
-    escrow.initialize(&sac.address(), &settlement, &registry_id, &pool_id, &treasury);
-    pool.initialize(&sac.address(), &oracle, &settlement, &registry_id, &escrow_id, &treasury);
+    escrow.initialize(
+        &sac.address(),
+        &settlement,
+        &registry_id,
+        &pool_id,
+        &treasury,
+    );
+    pool.initialize(
+        &sac.address(),
+        &oracle,
+        &settlement,
+        &registry_id,
+        &escrow_id,
+        &treasury,
+    );
     registry.initialize(&sac.address(), &escrow_id, &pool_id, &settlement);
 
     Setup {
@@ -127,7 +140,9 @@ fn create_match_rejected_below_min_bet() {
     let s = setup(&env);
 
     let pa = Address::generate(&env);
-    let res = s.registry.try_create_match(&pa, &(MIN_BET_STROOPS - 1), &600);
+    let res = s
+        .registry
+        .try_create_match(&pa, &(MIN_BET_STROOPS - 1), &600);
     assert_eq!(res, Err(Ok(void_err(Error::BetTooSmall))));
 }
 
@@ -137,7 +152,9 @@ fn create_match_rejected_below_min_time_control() {
     let s = setup(&env);
 
     let pa = Address::generate(&env);
-    let res = s.registry.try_create_match(&pa, &MIN_BET_STROOPS, &(MIN_TIME_CONTROL_SECS - 1));
+    let res = s
+        .registry
+        .try_create_match(&pa, &MIN_BET_STROOPS, &(MIN_TIME_CONTROL_SECS - 1));
     assert_eq!(res, Err(Ok(void_err(Error::TimeControlTooShort))));
 }
 

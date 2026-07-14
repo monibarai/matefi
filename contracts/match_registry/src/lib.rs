@@ -96,10 +96,18 @@ impl MatchRegistry {
             panic_with_error!(&env, Error::AlreadyInitialized);
         }
         env.storage().instance().set(&DataKey::Initialized, &true);
-        env.storage().instance().set(&DataKey::UsdcToken, &usdc_token);
-        env.storage().instance().set(&DataKey::Escrow, &escrow_vault);
-        env.storage().instance().set(&DataKey::Pool, &prediction_pool);
-        env.storage().instance().set(&DataKey::Settlement, &settlement);
+        env.storage()
+            .instance()
+            .set(&DataKey::UsdcToken, &usdc_token);
+        env.storage()
+            .instance()
+            .set(&DataKey::Escrow, &escrow_vault);
+        env.storage()
+            .instance()
+            .set(&DataKey::Pool, &prediction_pool);
+        env.storage()
+            .instance()
+            .set(&DataKey::Settlement, &settlement);
         env.storage().instance().set(&DataKey::MatchCounter, &0u64);
     }
 
@@ -136,7 +144,9 @@ impl MatchRegistry {
             .get(&DataKey::MatchCounter)
             .unwrap_or(0)
             + 1;
-        env.storage().instance().set(&DataKey::MatchCounter, &counter);
+        env.storage()
+            .instance()
+            .set(&DataKey::MatchCounter, &counter);
 
         // Store match.
         let m = Match {

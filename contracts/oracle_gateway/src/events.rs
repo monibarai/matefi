@@ -29,8 +29,10 @@ pub fn threshold_crossed(env: &Env, match_id: u64, score: i32, threshold: i32) {
 
 /// `ResultPosted(match_id, winner)` — relayer posted the final game result.
 pub fn result_posted(env: &Env, match_id: u64, winner: &Winner) {
-    env.events()
-        .publish((Symbol::new(env, "ResultPosted"),), (match_id, winner.clone()));
+    env.events().publish(
+        (Symbol::new(env, "ResultPosted"),),
+        (match_id, winner.clone()),
+    );
 }
 
 /// `ThresholdUpdated(old, new)` — relayer tuned the lock threshold.

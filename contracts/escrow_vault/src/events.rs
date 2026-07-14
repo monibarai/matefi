@@ -25,7 +25,13 @@ pub fn bonus_added(env: &Env, match_id: u64, amount: i128, total_locked: i128) {
 }
 
 /// `FundsReleased(match_id, winner, amount, protocol_fee)` — winner paid, rake sent to treasury.
-pub fn funds_released(env: &Env, match_id: u64, winner: &Address, amount: i128, protocol_fee: i128) {
+pub fn funds_released(
+    env: &Env,
+    match_id: u64,
+    winner: &Address,
+    amount: i128,
+    protocol_fee: i128,
+) {
     env.events().publish(
         (Symbol::new(env, "FundsReleased"),),
         (match_id, winner.clone(), amount, protocol_fee),

@@ -80,8 +80,12 @@ impl OracleGateway {
         }
         env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage().instance().set(&DataKey::Relayer, &relayer);
-        env.storage().instance().set(&DataKey::Pool, &prediction_pool);
-        env.storage().instance().set(&DataKey::Settlement, &settlement);
+        env.storage()
+            .instance()
+            .set(&DataKey::Pool, &prediction_pool);
+        env.storage()
+            .instance()
+            .set(&DataKey::Settlement, &settlement);
         env.storage()
             .instance()
             .set(&DataKey::Threshold, &DEFAULT_EVAL_THRESHOLD);
@@ -136,7 +140,11 @@ impl OracleGateway {
         let streak: i32 = if !crosses {
             0 // advantage evaporated — reset so the market stays open
         } else if score > 0 {
-            if prev > 0 { prev.saturating_add(1) } else { 1 }
+            if prev > 0 {
+                prev.saturating_add(1)
+            } else {
+                1
+            }
         } else if prev < 0 {
             prev.saturating_sub(1)
         } else {
@@ -183,7 +191,9 @@ impl OracleGateway {
             .instance()
             .get(&DataKey::Threshold)
             .unwrap_or(DEFAULT_EVAL_THRESHOLD);
-        env.storage().instance().set(&DataKey::Threshold, &new_threshold);
+        env.storage()
+            .instance()
+            .set(&DataKey::Threshold, &new_threshold);
 
         events::threshold_updated(&env, old, new_threshold);
     }

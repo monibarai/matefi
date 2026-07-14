@@ -39,8 +39,10 @@ pub fn match_active(
 
 /// `MatchCancelled(match_id, player_a)` — open match cancelled, Player A refunded.
 pub fn match_cancelled(env: &Env, match_id: u64, player_a: &Address) {
-    env.events()
-        .publish((Symbol::new(env, "MatchCancelled"),), (match_id, player_a.clone()));
+    env.events().publish(
+        (Symbol::new(env, "MatchCancelled"),),
+        (match_id, player_a.clone()),
+    );
 }
 
 /// `MatchCompleted(match_id)` — Settlement marked the match completed.

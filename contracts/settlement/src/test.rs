@@ -63,8 +63,21 @@ fn setup(env: &Env) -> Setup<'_> {
     let player_b = Address::generate(env);
 
     // Wire all contracts together
-    escrow.initialize(&sac.address(), &settlement_id, &registry_id, &pool_id, &treasury);
-    pool.initialize(&sac.address(), &oracle_id, &settlement_id, &registry_id, &escrow_id, &treasury);
+    escrow.initialize(
+        &sac.address(),
+        &settlement_id,
+        &registry_id,
+        &pool_id,
+        &treasury,
+    );
+    pool.initialize(
+        &sac.address(),
+        &oracle_id,
+        &settlement_id,
+        &registry_id,
+        &escrow_id,
+        &treasury,
+    );
     oracle.initialize(&relayer, &pool_id, &settlement_id);
     registry.initialize(&sac.address(), &escrow_id, &pool_id, &settlement_id);
     settlement.initialize(
@@ -105,7 +118,9 @@ fn initialize_only_once() {
     let env = Env::default();
     let s = setup(&env);
     let dummy = Address::generate(&env);
-    let res = s.settlement.try_initialize(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+    let res = s
+        .settlement
+        .try_initialize(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
     assert_eq!(res, Err(Ok(void_err(Error::AlreadyInitialized))));
 }
 
@@ -171,9 +186,24 @@ fn execute_with_trading_flywheel_bonus() {
     s.usdc_admin.mint(&trader_b, &(300 * USDC));
     s.usdc_admin.mint(&trader_d, &(100 * USDC));
 
-    s.pool.buy_outcome(&1, &trader_a, &prediction_pool::state::Outcome::PlayerA, &(800 * USDC));
-    s.pool.buy_outcome(&1, &trader_b, &prediction_pool::state::Outcome::PlayerB, &(300 * USDC));
-    s.pool.buy_outcome(&1, &trader_d, &prediction_pool::state::Outcome::Draw, &(100 * USDC));
+    s.pool.buy_outcome(
+        &1,
+        &trader_a,
+        &prediction_pool::state::Outcome::PlayerA,
+        &(800 * USDC),
+    );
+    s.pool.buy_outcome(
+        &1,
+        &trader_b,
+        &prediction_pool::state::Outcome::PlayerB,
+        &(300 * USDC),
+    );
+    s.pool.buy_outcome(
+        &1,
+        &trader_d,
+        &prediction_pool::state::Outcome::Draw,
+        &(100 * USDC),
+    );
 
     s.settlement.execute(&1, &Winner::PlayerA);
 
@@ -193,13 +223,17 @@ fn execute_with_trading_flywheel_bonus() {
 
     // net trading pool = 1164 USDC; since PlayerA won, A-traders can claim
     let net_pool: i128 = 1164 * USDC;
-    let payout_a = s.pool.pay_trader(&1, &trader_a, &prediction_pool::state::Outcome::PlayerA);
+    let payout_a = s
+        .pool
+        .pay_trader(&1, &trader_a, &prediction_pool::state::Outcome::PlayerA);
     // trader_a bet 800, pool_a=800, payout = 800*1164/800 = 1164
     assert_eq!(payout_a, net_pool);
     assert_eq!(s.usdc.balance(&trader_a), net_pool);
 
     // B and Draw traders get nothing
-    let res_b = s.pool.try_pay_trader(&1, &trader_b, &prediction_pool::state::Outcome::PlayerB);
+    let res_b = s
+        .pool
+        .try_pay_trader(&1, &trader_b, &prediction_pool::state::Outcome::PlayerB);
     assert!(res_b.is_err()); // NotWinningOutcome
 }
 
@@ -236,7 +270,8 @@ fn full_e2e_via_oracle_flow() {
     create_active_match(&s, 200 * USDC, 1);
 
     // Relayer posts result through oracle (which calls settlement.execute)
-    s.oracle.post_result(&1, &oracle_gateway::state::Winner::PlayerA);
+    s.oracle
+        .post_result(&1, &oracle_gateway::state::Winner::PlayerA);
 
     // Settlement completed via oracle → settlement chain
     let m = s.registry.get_match(&1);
@@ -255,7 +290,12 @@ fn execute_draw_with_trading_sends_flywheel_bonus_to_treasury() {
     // Add some trading
     let trader = Address::generate(&s.env);
     s.usdc_admin.mint(&trader, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader, &prediction_pool::state::Outcome::Draw, &(100 * USDC));
+    s.pool.buy_outcome(
+        &1,
+        &trader,
+        &prediction_pool::state::Outcome::Draw,
+        &(100 * USDC),
+    );
 
     s.settlement.execute(&1, &Winner::Draw);
 
@@ -264,7 +304,9 @@ fn execute_draw_with_trading_sends_flywheel_bonus_to_treasury() {
     assert_eq!(s.usdc.balance(&s.player_b), 500 * USDC);
 
     // Draw pool trader gets the full net pool (only one on Draw)
-    let payout = s.pool.pay_trader(&1, &trader, &prediction_pool::state::Outcome::Draw);
+    let payout = s
+        .pool
+        .pay_trader(&1, &trader, &prediction_pool::state::Outcome::Draw);
     // net pool = 100 * 97% = 97 USDC; 1% to treasury
     assert_eq!(payout, 97 * USDC);
 

@@ -55,7 +55,14 @@ fn setup(env: &Env) -> Setup<'_> {
     let player_b = Address::generate(env);
 
     escrow.initialize(&sac.address(), &settlement, &registry, &pool_id, &treasury);
-    pool.initialize(&sac.address(), &oracle, &settlement, &registry, &escrow_id, &treasury);
+    pool.initialize(
+        &sac.address(),
+        &oracle,
+        &settlement,
+        &registry,
+        &escrow_id,
+        &treasury,
+    );
 
     Setup {
         env: env.clone(),
@@ -141,8 +148,10 @@ fn buy_outcome_updates_pools_and_records_position() {
     s.usdc_admin.mint(&trader_a, &(100 * USDC));
     s.usdc_admin.mint(&trader_b, &(300 * USDC));
 
-    s.pool.buy_outcome(&1, &trader_a, &Outcome::PlayerA, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader_b, &Outcome::PlayerB, &(300 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader_a, &Outcome::PlayerA, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader_b, &Outcome::PlayerB, &(300 * USDC));
 
     let market = s.pool.get_market(&1);
     assert_eq!(market.pool_a, 100 * USDC);
@@ -150,8 +159,14 @@ fn buy_outcome_updates_pools_and_records_position() {
     assert_eq!(market.pool_draw, 0);
     assert_eq!(market.total_volume, 400 * USDC);
 
-    assert_eq!(s.pool.get_position(&1, &trader_a, &Outcome::PlayerA), 100 * USDC);
-    assert_eq!(s.pool.get_position(&1, &trader_b, &Outcome::PlayerB), 300 * USDC);
+    assert_eq!(
+        s.pool.get_position(&1, &trader_a, &Outcome::PlayerA),
+        100 * USDC
+    );
+    assert_eq!(
+        s.pool.get_position(&1, &trader_b, &Outcome::PlayerB),
+        300 * USDC
+    );
 
     assert_eq!(s.usdc.balance(&s.pool.address), 400 * USDC);
     assert_eq!(s.usdc.balance(&trader_a), 0);
@@ -167,10 +182,15 @@ fn buy_outcome_accumulates_positions() {
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &(200 * USDC));
 
-    s.pool.buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
 
-    assert_eq!(s.pool.get_position(&1, &trader, &Outcome::PlayerA), 200 * USDC);
+    assert_eq!(
+        s.pool.get_position(&1, &trader, &Outcome::PlayerA),
+        200 * USDC
+    );
     assert_eq!(s.pool.get_market(&1).pool_a, 200 * USDC);
 }
 
@@ -183,7 +203,9 @@ fn buy_outcome_rejected_when_locked() {
 
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &USDC);
-    let res = s.pool.try_buy_outcome(&1, &trader, &Outcome::PlayerA, &USDC);
+    let res = s
+        .pool
+        .try_buy_outcome(&1, &trader, &Outcome::PlayerA, &USDC);
     assert_eq!(res, Err(Ok(void_err(Error::MarketIsLocked))));
 }
 
@@ -201,7 +223,9 @@ fn buy_outcome_rejected_when_settled() {
 
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &USDC);
-    let res = s.pool.try_buy_outcome(&1, &trader, &Outcome::PlayerA, &USDC);
+    let res = s
+        .pool
+        .try_buy_outcome(&1, &trader, &Outcome::PlayerA, &USDC);
     assert_eq!(res, Err(Ok(void_err(Error::AlreadySettled))));
 }
 
@@ -213,7 +237,9 @@ fn buy_outcome_rejected_below_minimum() {
 
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &(9_999_999i128));
-    let res = s.pool.try_buy_outcome(&1, &trader, &Outcome::PlayerA, &(9_999_999i128));
+    let res = s
+        .pool
+        .try_buy_outcome(&1, &trader, &Outcome::PlayerA, &(9_999_999i128));
     assert_eq!(res, Err(Ok(void_err(Error::BetTooSmall))));
 }
 
@@ -262,8 +288,10 @@ fn get_odds_matches_spec_example() {
     s.usdc_admin.mint(&tb, &(300 * USDC));
     s.usdc_admin.mint(&td, &(100 * USDC));
 
-    s.pool.buy_outcome(&1, &ta, &Outcome::PlayerA, &(800 * USDC));
-    s.pool.buy_outcome(&1, &tb, &Outcome::PlayerB, &(300 * USDC));
+    s.pool
+        .buy_outcome(&1, &ta, &Outcome::PlayerA, &(800 * USDC));
+    s.pool
+        .buy_outcome(&1, &tb, &Outcome::PlayerB, &(300 * USDC));
     s.pool.buy_outcome(&1, &td, &Outcome::Draw, &(100 * USDC));
 
     let (odds_a, odds_b, odds_d) = s.pool.get_odds(&1);
@@ -289,8 +317,10 @@ fn settle_distributes_fees_and_records_result() {
     s.usdc_admin.mint(&ta, &(800 * USDC));
     s.usdc_admin.mint(&tb, &(300 * USDC));
     s.usdc_admin.mint(&td, &(100 * USDC));
-    s.pool.buy_outcome(&1, &ta, &Outcome::PlayerA, &(800 * USDC));
-    s.pool.buy_outcome(&1, &tb, &Outcome::PlayerB, &(300 * USDC));
+    s.pool
+        .buy_outcome(&1, &ta, &Outcome::PlayerA, &(800 * USDC));
+    s.pool
+        .buy_outcome(&1, &tb, &Outcome::PlayerB, &(300 * USDC));
     s.pool.buy_outcome(&1, &td, &Outcome::Draw, &(100 * USDC));
 
     s.usdc_admin.mint(&s.escrow.address, &(1000 * USDC));
@@ -338,7 +368,8 @@ fn pay_trader_pays_proportional_share() {
 
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader, &Outcome::PlayerA, &(100 * USDC));
 
     s.usdc_admin.mint(&s.escrow.address, &(1000 * USDC));
     s.escrow.record_deposit(&1, &s.player_a, &(500 * USDC));
@@ -362,7 +393,8 @@ fn pay_trader_rejected_for_losing_outcome() {
 
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader, &Outcome::PlayerB, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader, &Outcome::PlayerB, &(100 * USDC));
 
     s.usdc_admin.mint(&s.escrow.address, &(1000 * USDC));
     s.escrow.record_deposit(&1, &s.player_a, &(500 * USDC));
@@ -393,7 +425,8 @@ fn no_bets_on_winning_outcome_sweeps_net_to_treasury() {
     // Only bets on PlayerB — nobody bet on PlayerA
     let trader = Address::generate(&env);
     s.usdc_admin.mint(&trader, &(100 * USDC));
-    s.pool.buy_outcome(&1, &trader, &Outcome::PlayerB, &(100 * USDC));
+    s.pool
+        .buy_outcome(&1, &trader, &Outcome::PlayerB, &(100 * USDC));
 
     s.usdc_admin.mint(&s.escrow.address, &(1000 * USDC));
     s.escrow.record_deposit(&1, &s.player_a, &(500 * USDC));

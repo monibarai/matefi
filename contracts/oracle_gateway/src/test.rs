@@ -1,10 +1,15 @@
 #![cfg(test)]
 extern crate std;
 
-use soroban_sdk::{testutils::{Address as _, Ledger as _}, token, Address, Bytes, Env, Error as SdkError};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger as _},
+    token, Address, Bytes, Env, Error as SdkError,
+};
 
 use crate::errors::Error;
-use crate::{OracleGateway, OracleGatewayClient, DEFAULT_EVAL_THRESHOLD, DEFAULT_LOCK_CONFIRMATIONS};
+use crate::{
+    OracleGateway, OracleGatewayClient, DEFAULT_EVAL_THRESHOLD, DEFAULT_LOCK_CONFIRMATIONS,
+};
 use escrow_vault::{EscrowVault, EscrowVaultClient};
 use prediction_pool::{PredictionPool, PredictionPoolClient};
 
@@ -17,7 +22,10 @@ fn void_err(e: Error) -> SdkError {
 }
 
 fn dummy_fen(env: &Env) -> Bytes {
-    Bytes::from_slice(env, b"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+    Bytes::from_slice(
+        env,
+        b"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+    )
 }
 
 /// Post the same score `n` times, each at its own ledger sequence — mirrors the
@@ -70,7 +78,14 @@ fn setup(env: &Env) -> Setup<'_> {
     let player_b = Address::generate(env);
 
     escrow.initialize(&sac.address(), &settlement, &registry, &pool_id, &treasury);
-    pool.initialize(&sac.address(), &oracle_id, &settlement, &registry, &escrow_id, &treasury);
+    pool.initialize(
+        &sac.address(),
+        &oracle_id,
+        &settlement,
+        &registry,
+        &escrow_id,
+        &treasury,
+    );
     oracle.initialize(&relayer, &pool_id, &settlement);
 
     // Open a market so oracle can lock it
@@ -221,7 +236,7 @@ fn post_evaluation_lock_is_one_way() {
 
     let fen = dummy_fen(&env);
     post_n(&s, 1, 300, DEFAULT_LOCK_CONFIRMATIONS); // sustained advantage locks at 300
-    // A subsequent eval below threshold doesn't unlock
+                                                    // A subsequent eval below threshold doesn't unlock
     s.oracle.post_evaluation(&1, &fen, &18, &50);
 
     let market = s.pool.get_market(&1);

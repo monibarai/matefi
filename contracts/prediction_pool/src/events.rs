@@ -32,7 +32,13 @@ pub fn market_locked(env: &Env, match_id: u64, eval_score: i32) {
 
 /// `MarketSettled(match_id, winner, net_pool, winning_pool)` — fees skimmed,
 /// market frozen for claims.
-pub fn market_settled(env: &Env, match_id: u64, winner: &Winner, net_pool: i128, winning_pool: i128) {
+pub fn market_settled(
+    env: &Env,
+    match_id: u64,
+    winner: &Winner,
+    net_pool: i128,
+    winning_pool: i128,
+) {
     env.events().publish(
         (Symbol::new(env, "MarketSettled"),),
         (match_id, winner.clone(), net_pool, winning_pool),

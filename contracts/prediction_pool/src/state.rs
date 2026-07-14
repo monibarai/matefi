@@ -29,7 +29,7 @@ pub enum Winner {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MarketResult {
-    Pending,  // not yet settled
+    Pending, // not yet settled
     PlayerA,
     PlayerB,
     Draw,

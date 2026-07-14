@@ -26,7 +26,7 @@ pub struct Match {
     pub match_id: u64,
     pub player_a: Address,
     pub player_b: Option<Address>,
-    pub bet_amount: i128,       // in USDC stroops (7 decimal places, 1 USDC = 10_000_000)
+    pub bet_amount: i128, // in USDC stroops (7 decimal places, 1 USDC = 10_000_000)
     pub time_control_secs: u32, // total seconds per player
     pub state: MatchState,
     pub created_at: u64, // ledger timestamp

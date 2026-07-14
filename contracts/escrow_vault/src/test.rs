@@ -156,10 +156,16 @@ fn add_bonus_rejects_nonpositive_and_missing_record() {
     let s = setup(&env);
     let a = Address::generate(&env);
 
-    assert_eq!(s.escrow.try_add_bonus(&7, &USDC), Err(Ok(cerr(Error::RecordNotFound))));
+    assert_eq!(
+        s.escrow.try_add_bonus(&7, &USDC),
+        Err(Ok(cerr(Error::RecordNotFound)))
+    );
 
     s.escrow.record_deposit(&1, &a, &(500 * USDC));
-    assert_eq!(s.escrow.try_add_bonus(&1, &0), Err(Ok(cerr(Error::InvalidAmount))));
+    assert_eq!(
+        s.escrow.try_add_bonus(&1, &0),
+        Err(Ok(cerr(Error::InvalidAmount)))
+    );
 }
 
 #[test]
@@ -229,7 +235,10 @@ fn release_draw_refunds_deposits_and_sends_bonus_to_treasury() {
     assert_eq!(s.usdc.balance(&s.treasury), 24 * USDC);
     assert_eq!(s.usdc.balance(&s.escrow.address), 0);
 
-    assert_eq!(s.escrow.try_release_draw(&1), Err(Ok(cerr(Error::AlreadyReleased))));
+    assert_eq!(
+        s.escrow.try_release_draw(&1),
+        Err(Ok(cerr(Error::AlreadyReleased)))
+    );
 }
 
 #[test]
