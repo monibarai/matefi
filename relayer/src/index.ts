@@ -34,15 +34,18 @@ async function main(): Promise<void> {
   app.use('/api', apiRouter);
 
   const httpServer = http.createServer(app);
+
+  // WebSocket server. On single-port hosts (Render/Heroku) share the HTTP
+  // server so REST + WS use one port; set WS_PORT>0 to bind a standalone port
+  // for local dev. Attach before listen so the upgrade handler is registered.
+  startWebSocketServer(config.WS_PORT > 0 ? config.WS_PORT : httpServer);
+
   await new Promise<void>((resolve) =>
     httpServer.listen(config.PORT, () => {
       console.log(`[relayer] REST API listening on :${config.PORT}`);
       resolve();
     })
   );
-
-  // WebSocket server (separate port per spec)
-  startWebSocketServer(config.WS_PORT);
 
   // Soroban event listener (no-op when contracts unconfigured)
   startEventListener();

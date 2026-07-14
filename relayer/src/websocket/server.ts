@@ -4,7 +4,7 @@
 // time — call startWebSocketServer() from index.ts. This keeps imports
 // side-effect free (gameManager imports broadcastToMatch).
 import { WebSocketServer, WebSocket } from 'ws';
-import { IncomingMessage } from 'http';
+import { IncomingMessage, Server as HttpServer } from 'http';
 import { WsEvent } from './events';
 
 let wss: WebSocketServer | null = null;
@@ -12,9 +12,19 @@ let wss: WebSocketServer | null = null;
 // matchId → set of connected clients
 const matchRooms = new Map<string, Set<WebSocket>>();
 
-export function startWebSocketServer(port: number): WebSocketServer {
+/**
+ * Start the WebSocket server.
+ *
+ * Pass an existing http.Server to share a single port (required on
+ * single-port PaaS like Render/Heroku — clients connect to wss://host/?matchId=).
+ * Pass a number to bind a standalone port (handy for local dev).
+ */
+export function startWebSocketServer(target: HttpServer | number): WebSocketServer {
   if (wss) return wss;
-  wss = new WebSocketServer({ port });
+  wss =
+    typeof target === 'number'
+      ? new WebSocketServer({ port: target })
+      : new WebSocketServer({ server: target });
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url ?? '/', 'ws://localhost');
@@ -39,7 +49,8 @@ export function startWebSocketServer(port: number): WebSocketServer {
     ws.on('error', () => ws.close());
   });
 
-  wss.on('listening', () => console.log(`[ws] WebSocket server listening on :${port}`));
+  const where = typeof target === 'number' ? `standalone port :${target}` : 'shared HTTP server';
+  wss.on('listening', () => console.log(`[ws] WebSocket server attached (${where})`));
   return wss;
 }
 
