@@ -25,7 +25,6 @@ export function PlayerInfo({
   playerB,
   playerAColor,
   betAmount,
-  status,
   turn,
   whiteMs = null,
   blackMs = null,

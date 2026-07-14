@@ -22,8 +22,7 @@ jest.mock('@/lib/stellar', () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { usdcToStroops, stroopsToUsdc, formatUsdc, STROOPS_PER_USDC, USDC_DECIMALS } =
-  require('@/lib/usdc');
+const { usdcToStroops, stroopsToUsdc, formatUsdc, STROOPS_PER_USDC, USDC_DECIMALS } = require('@/lib/usdc');
 
 describe('USDC constants', () => {
   test('USDC_DECIMALS is 7', () => {

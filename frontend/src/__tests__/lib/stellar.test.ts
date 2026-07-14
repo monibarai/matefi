@@ -12,8 +12,7 @@ jest.mock('@stellar/stellar-sdk', () => ({
 jest.mock('@creit.tech/stellar-wallets-kit', () => ({}));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { NETWORK_PASSPHRASE, SOROBAN_RPC_URL, shortAddress, txExplorerUrl } =
-  require('@/lib/stellar');
+const { NETWORK_PASSPHRASE, SOROBAN_RPC_URL, shortAddress, txExplorerUrl } = require('@/lib/stellar');
 
 describe('stellar.ts constants', () => {
   test('NETWORK_PASSPHRASE is Stellar Testnet passphrase', () => {
