@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/* MateFi — chess club x trading terminal                              */
+/* ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-ink text-bone font-sans text-[15px] leading-relaxed;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(242, 169, 59, 0.05), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 110%, rgba(47, 191, 143, 0.04), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(242, 169, 59, 0.3);
+    color: #f5f2ea;
+  }
+
+  /* slim terminal scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2c3545 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #2c3545;
+    border-radius: 3px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Surface card used by every panel */
+  .panel {
+    @apply rounded-lg border border-edge bg-panel shadow-panel;
+  }
+
+  /* Tiny uppercase mono label — the terminal voice */
+  .tag {
+    @apply font-mono text-[10px] uppercase tracking-[0.18em] text-bone-faint;
+  }
+
+  /* Primary action button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-lock px-4 py-2
+      font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink-deep
+      transition-all duration-150 hover:brightness-110 hover:shadow-glow
+      disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:shadow-none;
+  }
+
+  /* Quiet bordered button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-edge-bright
+      bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-bone-dim
+      transition-colors duration-150 hover:border-bone-faint hover:text-bone
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  /* Danger (resign) button */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-short/40
+      bg-short-wash px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-short
+      transition-colors duration-150 hover:border-short hover:bg-short/20
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .input-terminal,
+  .input {
+    @apply w-full rounded-md border border-edge bg-ink-raise px-3 py-2 font-mono text-sm
+      text-bone placeholder:text-bone-faint focus:border-lock/60 focus:outline-none
+      focus:ring-1 focus:ring-lock/30 transition-colors;
+  }
+
+  /* Loading shimmer block */
+  .skeleton {
+    @apply animate-shimmer rounded-md;
+    background: linear-gradient(100deg, #11141b 40%, #1a1f2b 50%, #11141b 60%);
+    background-size: 200% 100%;
+  }
+
+  /* Live pulse dot */
+  .live-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full bg-long animate-pulse-dot;
+  }
+}
