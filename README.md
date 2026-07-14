@@ -2,8 +2,8 @@
 
 > P2P chess betting with a live parimutuel prediction market. USDC only. Stellar Soroban Testnet.
 
-[![CI](https://github.com/your-org/matefi/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/matefi/actions/workflows/ci.yml)
-[![Deploy](https://github.com/your-org/matefi/actions/workflows/deploy.yml/badge.svg)](https://github.com/your-org/matefi/actions/workflows/deploy.yml)
+[![CI](https://github.com/monibarai/matefi/actions/workflows/ci.yml/badge.svg)](https://github.com/monibarai/matefi/actions/workflows/ci.yml)
+[![Deploy](https://github.com/monibarai/matefi/actions/workflows/deploy.yml/badge.svg)](https://github.com/monibarai/matefi/actions/workflows/deploy.yml)
 [![Tests](https://img.shields.io/badge/frontend%20tests-33%20passing-brightgreen)]()
 [![Contract Tests](https://img.shields.io/badge/contract%20tests-50%2B%20passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
@@ -261,7 +261,7 @@ Full deployment metadata is in [`docs/contract-addresses.json`](docs/contract-ad
 ### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/your-org/matefi.git
+git clone https://github.com/monibarai/matefi.git
 cd matefi
 ```
 
