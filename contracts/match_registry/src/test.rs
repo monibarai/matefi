@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(dead_code)]
 extern crate std;
 
 use soroban_sdk::{testutils::Address as _, token, Address, Env, Error as SdkError};

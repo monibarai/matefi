@@ -153,13 +153,11 @@ impl Settlement {
         let escrow_client = EscrowVaultClient::new(&env, &escrow);
 
         // For the event: amount actually paid out to the player side.
-        let player_payout: i128;
-
-        match winner {
+        let player_payout: i128 = match winner {
             Winner::PlayerA => {
                 // Vault pays 97% to the winner and the 3% rake to treasury.
                 escrow_client.release(&match_id, &m.player_a, &player_prize);
-                player_payout = player_prize;
+                player_prize
             }
             Winner::PlayerB => {
                 let player_b = match m.player_b.clone() {
@@ -167,16 +165,16 @@ impl Settlement {
                     None => panic_with_error!(&env, Error::PlayerBMissing),
                 };
                 escrow_client.release(&match_id, &player_b, &player_prize);
-                player_payout = player_prize;
+                player_prize
             }
             Winner::Draw => {
                 // Deposits refunded (no rake on the player pool for draws);
                 // the vault forwards the flywheel bonus to treasury so no
                 // funds are stranded.
                 escrow_client.release_draw(&match_id);
-                player_payout = m.bet_amount * 2;
+                m.bet_amount * 2
             }
-        }
+        };
 
         // Mark match completed.
         registry_client.complete_match(&match_id);

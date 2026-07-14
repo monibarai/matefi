@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(dead_code)]
 extern crate std;
 
 use soroban_sdk::{

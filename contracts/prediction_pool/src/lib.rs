@@ -12,7 +12,7 @@
 //! - `lock_market` — OracleGateway only
 //! - `settle`      — Settlement only
 //! - `pay_trader`  — permissionless claim (anyone may trigger; funds always
-//!                   go to the recorded trader)
+//!   go to the recorded trader)
 //!
 //! ## Money flow at settlement (spec §10, corrected for solvency)
 //! The Settlement contract never holds funds, so this contract pays the
@@ -176,7 +176,7 @@ impl PredictionPool {
         }
 
         // Transfer USDC from trader to this contract.
-        usdc(&env).transfer(&trader, &env.current_contract_address(), &amount);
+        usdc(&env).transfer(&trader, env.current_contract_address(), &amount);
 
         // Update pool buckets.
         match outcome {
@@ -250,7 +250,7 @@ impl PredictionPool {
         let usdc = usdc(&env);
 
         if fee_treasury > 0 {
-            usdc.transfer(&this, &get_addr(&env, DataKey::Treasury), &fee_treasury);
+            usdc.transfer(&this, get_addr(&env, DataKey::Treasury), &fee_treasury);
         }
         if fee_flywheel > 0 {
             let escrow = get_addr(&env, DataKey::Escrow);
@@ -260,7 +260,7 @@ impl PredictionPool {
         // Nobody bet on the winning outcome: sweep the net pool to treasury
         // instead of stranding it in the contract forever.
         if winning_pool == 0 && net_pool > 0 {
-            usdc.transfer(&this, &get_addr(&env, DataKey::Treasury), &net_pool);
+            usdc.transfer(&this, get_addr(&env, DataKey::Treasury), &net_pool);
         }
 
         events::market_settled(&env, match_id, &winner, net_pool, winning_pool);

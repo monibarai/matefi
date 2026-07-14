@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(dead_code)]
 extern crate std;
 
 use soroban_sdk::{testutils::Address as _, token, Address, Env, Error as SdkError};
@@ -209,7 +210,7 @@ fn release_rejects_double_release_and_overdraw() {
 
     s.escrow.release(&1, &a, &(970 * USDC));
     assert_eq!(
-        s.escrow.try_release(&1, &a, &(1 * USDC)),
+        s.escrow.try_release(&1, &a, &USDC),
         Err(Ok(cerr(Error::AlreadyReleased)))
     );
 }

@@ -184,7 +184,7 @@ impl EscrowVault {
         let this = env.current_contract_address();
         usdc.transfer(&this, &winner, &amount);
         if protocol_fee > 0 {
-            usdc.transfer(&this, &get_addr(&env, DataKey::Treasury), &protocol_fee);
+            usdc.transfer(&this, get_addr(&env, DataKey::Treasury), &protocol_fee);
         }
 
         events::funds_released(&env, match_id, &winner, amount, protocol_fee);
@@ -210,7 +210,7 @@ impl EscrowVault {
             usdc.transfer(&this, &pb, &record.amount_each);
         }
         if record.bonus > 0 {
-            usdc.transfer(&this, &get_addr(&env, DataKey::Treasury), &record.bonus);
+            usdc.transfer(&this, get_addr(&env, DataKey::Treasury), &record.bonus);
         }
 
         events::funds_released_draw(&env, match_id, record.amount_each, record.bonus);
