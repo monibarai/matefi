@@ -733,7 +733,8 @@ Tests:       33 passed, 33 total
 ## 21. CI/CD Pipeline
 
 <!-- ⟨paste CI/CD pipeline screenshot here⟩ -->
-<img width="2854" height="1104" alt="MateFi CI/CD pipeline" src="⟨CICD_SCREENSHOT_URL⟩" />
+<img width="2835" height="1101" alt="Screenshot from 2026-07-15 18-49-21" src="https://github.com/user-attachments/assets/cbcc12fb-9ab1-486f-b99f-7e85c1d6ef32" />
+
 
 Two GitHub Actions workflows in `.github/workflows/`:
 
