@@ -20,18 +20,18 @@
 
 **Network:** Stellar Testnet · Passphrase `Test SDF Network ; September 2015`
 
-**Live app:** ⟨LIVE_APP_URL⟩ · **Deployer:** `⟨DEPLOYER_G_ADDRESS⟩`
+**Live app:** https://matefi.vercel.app · **Relayer API:** https://matefi.onrender.com · **Treasury:** `GDWUNMZZJMJNRQ2TJXOEPGGKO7MEYR6UALATAM3ANSIYSXI6Q4TVCBPR`
 
 | Contract | Deployed Address (testnet) | Explorer |
 |---|---|---|
-| **match_registry** | `⟨MATCH_REGISTRY_ID⟩` | [view](⟨EXPLORER_LINK⟩) |
-| **escrow_vault** | `⟨ESCROW_VAULT_ID⟩` | [view](⟨EXPLORER_LINK⟩) |
-| **prediction_pool** | `⟨PREDICTION_POOL_ID⟩` | [view](⟨EXPLORER_LINK⟩) |
-| **oracle_gateway** | `⟨ORACLE_GATEWAY_ID⟩` | [view](⟨EXPLORER_LINK⟩) |
-| **settlement** | `⟨SETTLEMENT_ID⟩` | [view](⟨EXPLORER_LINK⟩) |
+| **match_registry** | `CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27` | [view](https://stellar.expert/explorer/testnet/contract/CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27) |
+| **escrow_vault** | `CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB` | [view](https://stellar.expert/explorer/testnet/contract/CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB) |
+| **prediction_pool** | `CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP` | [view](https://stellar.expert/explorer/testnet/contract/CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP) |
+| **oracle_gateway** | `CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU` | [view](https://stellar.expert/explorer/testnet/contract/CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU) |
+| **settlement** | `CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX` | [view](https://stellar.expert/explorer/testnet/contract/CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX) |
 | USDC (Stellar Asset Contract) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [view](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 
-> USDC is a SAC wrapping the classic asset `USDC` issued by `⟨USDC_ISSUER_G_ADDRESS⟩` (issuer G-address, used only to build `change_trust` trustline txs — **not** for Soroban token calls). All player stakes, trader bets, and fee distributions are denominated in USDC.
+> USDC is a SAC wrapping the classic asset `USDC` issued by `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` (issuer G-address, used only to build `change_trust` trustline txs — **not** for Soroban token calls). All player stakes, trader bets, and fee distributions are denominated in USDC.
 
 ### Smart-contract folder structure
 
@@ -66,7 +66,7 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 ### CI/CD (GitHub Actions — `.github/workflows/`)
 
 - **`ci.yml`** (push/PR to any branch) — **contracts job:** `cargo fmt --check` → `cargo clippy -D warnings` → `cargo test` → `cargo build --target wasm32v1-none --release` → upload wasm; **frontend job:** `npm ci` → `npm run lint` → `tsc --noEmit` → `npm run test:ci` → `npm run build`. Fails on any lint/type/test/build error.
-- **`deploy.yml`** (push to `main` + manual dispatch) — **deploy-contract:** *manual-only* (gated behind `workflow_dispatch`); build wasm → `stellar contract deploy` (all 5 contracts) on testnet; **deploy-frontend:** runs on every push → `npm run build` with `NEXT_PUBLIC_*` → `vercel --prod`. Contracts are **never** redeployed on a normal push (that would mint new addresses); the frontend falls back to the existing contract IDs from secrets. Details in [§21](#21-cicd-pipeline)–[§22](#22-deployment--rollback).
+- **`deploy.yml`** (push to `main` + manual dispatch) — a sequential 3-stage pipeline: **deploy-contract → deploy-relayer → deploy-frontend** (+ smoke test). On a normal push the contract job builds the WASM and reports the **existing** live testnet addresses but does **not** redeploy (that would mint new addresses); a real `stellar contract deploy` runs only on manual dispatch with the `deploy_contracts` flag. The relayer deploys to **Render** and the frontend to **Vercel**. Details in [§21](#21-cicd-pipeline)–[§22](#22-deployment--rollback).
 
 ---
 
@@ -120,8 +120,9 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 
 | Resource | Link |
 |----|-----|
-| Live Demo | [Live Link](⟨LIVE_APP_URL⟩) |
-| Demo Video | [Video link](⟨DEMO_VIDEO_URL⟩) |
+| Live Demo | https://matefi.vercel.app |
+| Relayer API | https://matefi.onrender.com/api/health |
+| Demo Video | ⟨add your demo video link⟩ |
 
 ---
 
@@ -411,7 +412,7 @@ export function useTrading(matchId: string) {
 
 | Token | Type | Soroban address (SAC) | Classic issuer |
 |---|---|---|---|
-| USDC | SEP-41 SAC over classic USDC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | `⟨USDC_ISSUER_G_ADDRESS⟩` |
+| USDC | SEP-41 SAC over classic USDC | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` |
 
 > USDC in Soroban is accessed via the Stellar Asset Contract (SAC) — the `C…` address, not the issuer G-address. The issuer is only used to build `change_trust` trustline transactions.
 
@@ -465,7 +466,7 @@ matefi/
 │   ├── src/
 │   │   ├── api/                  # matches, traders, router
 │   │   ├── chess/                # engine (Stockfish), gameManager, validator
-│   │   ├── db/                   # client, migrate, migrations, queries
+│   │   ├── db/                   # MongoDB client, migrate (indexes), queries
 │   │   ├── stellar/              # client, eventListener, reconcile, signer, contracts/*
 │   │   ├── websocket/            # server, events
 │   │   ├── config.ts
@@ -502,25 +503,46 @@ stellar version
 
 Create `frontend/.env.local` (see `frontend/.env.local.example`) and `relayer/.env` (see `relayer/.env.example`):
 
+**`frontend/.env.local`:**
 ```env
 # --- Network ---
 NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 
 # --- Deployed contract addresses (current testnet deployment) ---
-NEXT_PUBLIC_MATCH_REGISTRY_ID=⟨MATCH_REGISTRY_ID⟩
-NEXT_PUBLIC_ESCROW_VAULT_ID=⟨ESCROW_VAULT_ID⟩
-NEXT_PUBLIC_PREDICTION_POOL_ID=⟨PREDICTION_POOL_ID⟩
-NEXT_PUBLIC_ORACLE_GATEWAY_ID=⟨ORACLE_GATEWAY_ID⟩
-NEXT_PUBLIC_SETTLEMENT_ID=⟨SETTLEMENT_ID⟩
+NEXT_PUBLIC_MATCH_REGISTRY_ID=CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27
+NEXT_PUBLIC_ESCROW_VAULT_ID=CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB
+NEXT_PUBLIC_PREDICTION_POOL_ID=CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP
+NEXT_PUBLIC_ORACLE_GATEWAY_ID=CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU
+NEXT_PUBLIC_SETTLEMENT_ID=CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX
 NEXT_PUBLIC_USDC_CONTRACT_ID=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
 
-# --- Relayer / API ---
-NEXT_PUBLIC_API_URL=⟨API_URL⟩
-NEXT_PUBLIC_WS_URL=⟨WEBSOCKET_URL⟩
+# --- Relayer / API (local dev; in prod point at the Render URL) ---
+NEXT_PUBLIC_API_URL=http://localhost:4000/api        # prod: https://matefi.onrender.com/api
+NEXT_PUBLIC_WS_URL=ws://localhost:3001               # prod: wss://matefi.onrender.com
+```
 
-# --- Relayer secrets (relayer/.env, never commit) ---
-STELLAR_SECRET_KEY=⟨FUNDED_TESTNET_SECRET⟩
+**`relayer/.env`** (never commit — secrets):
+```env
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+RELAYER_SECRET=<funded testnet secret key, starts with S>
+TREASURY_ADDRESS=GDWUNMZZJMJNRQ2TJXOEPGGKO7MEYR6UALATAM3ANSIYSXI6Q4TVCBPR
+
+# MongoDB — local: mongodb://localhost:27017 · Atlas: mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=matefi
+
+# Contract IDs (same as the frontend values above)
+MATCH_REGISTRY_CONTRACT_ID=CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27
+ESCROW_VAULT_CONTRACT_ID=CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB
+PREDICTION_POOL_CONTRACT_ID=CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP
+ORACLE_GATEWAY_CONTRACT_ID=CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU
+SETTLEMENT_CONTRACT_ID=CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX
+USDC_CONTRACT_ID=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+
+PORT=4000
+WS_PORT=3001    # set to 0 on single-port hosts (Render) to share the HTTP port
 ```
 
 ### Build Contracts
@@ -688,7 +710,7 @@ Each state-changing contract action publishes a Soroban event (e.g. `contracts/e
 
 ### Relayer + frontend real-time model
 
-The relayer (`relayer/src/stellar/eventListener.ts`) subscribes to Soroban RPC, de-duplicates events (`db/migrations/002_event_dedupe.sql`), and rebroadcasts to the browser over a **WebSocket** (`relayer/src/websocket/server.ts`):
+The relayer (`relayer/src/stellar/eventListener.ts`) subscribes to Soroban RPC, mirrors on-chain state into **MongoDB**, de-duplicates events (a partial-unique index on the on-chain trade's natural key makes replayed `BetPlaced` events no-ops), and rebroadcasts to the browser over a **WebSocket** (`relayer/src/websocket/server.ts`):
 
 - `hooks/useWebSocket.ts` subscribes to match + market channels; moves, odds, eval bar, and market status update live without a page refresh.
 - **Move sync:** the relayer's `chess/gameManager.ts` validates moves and streams them to both players and spectators.
@@ -732,9 +754,9 @@ Tests:       33 passed, 33 total
 
 ## 21. CI/CD Pipeline
 
-<!-- ⟨paste CI/CD pipeline screenshot here⟩ -->
-<img width="2835" height="1101" alt="Screenshot from 2026-07-15 18-49-21" src="https://github.com/user-attachments/assets/cbcc12fb-9ab1-486f-b99f-7e85c1d6ef32" />
+<img width="2835" height="1101" alt="MateFi CI/CD pipeline — green run" src="https://github.com/user-attachments/assets/cbcc12fb-9ab1-486f-b99f-7e85c1d6ef32" />
 
+_CI + Deploy both green on `main` — see the [Actions tab](https://github.com/monibarai/matefi/actions)._
 
 Two GitHub Actions workflows in `.github/workflows/`:
 
@@ -746,14 +768,18 @@ Two GitHub Actions workflows in `.github/workflows/`:
 
 The build fails if **any** step fails (lint error, type error, failing test, or broken build), satisfying "fails correctly when errors occur." Both jobs produce downloadable artifacts (contract wasm + frontend build).
 
-### `deploy.yml` — manual dispatch (contracts) + push to `main` (frontend)
+### `deploy.yml` — sequential 3-stage pipeline (push to `main` + manual dispatch)
+
+Runs **deploy-contract → deploy-relayer → deploy-frontend → smoke-test** in order.
+
 | Job | Steps |
 |---|---|
-| **deploy-contract** | *manual-only* (`workflow_dispatch` + `deploy_contracts` flag) → install Rust + wasm target → install Stellar CLI → build wasm → `stellar contract deploy` (all 5 contracts) using `secrets.STELLAR_SECRET_KEY`, network testnet → expose contract-id outputs |
-| **deploy-frontend** | runs on every push (`if: !failure()`) → `npm ci` → `npm run build` with `NEXT_PUBLIC_*` from secrets (falls back to existing contract IDs when contracts aren't redeployed) → `vercel --prod` |
-| **smoke-test** | `needs: deploy-frontend` → curl the deployed URL, assert HTTP 200 |
+| **deploy-contract** | install Rust + wasm target → build wasm → **on push:** report the existing live testnet addresses (no redeploy); **on manual dispatch with `deploy_contracts`:** `stellar contract deploy` all 5 contracts using `secrets.STELLAR_SECRET_KEY` → expose contract-id outputs → upload wasm artifact |
+| **deploy-relayer** | `needs: deploy-contract` → `npm install` → `npm run build` (tsc) → upload `dist` → trigger **Render** deploy (`RENDER_DEPLOY_HOOK_URL`, or Render's native GitHub auto-deploy) |
+| **deploy-frontend** | `needs: deploy-relayer` → `npm ci` → `npm run build` with the live `NEXT_PUBLIC_*` → upload `.next` → trigger **Vercel** deploy (`VERCEL_DEPLOY_HOOK_URL` / `VERCEL_TOKEN`, or Vercel's native GitHub auto-deploy) |
+| **smoke-test** | `needs: deploy-frontend` → curl relayer `/health` + the frontend URL (non-blocking) |
 
-> **Contracts are never redeployed on a normal push** — that would mint brand-new addresses and wipe on-chain state. Redeploying is a deliberate manual action (Actions → Deploy → *Run workflow* → tick "Redeploy smart contracts").
+> **Contracts are never redeployed on a normal push** — that would mint brand-new addresses and wipe on-chain state. The contract job goes through the deploy motions and reports the live addresses. A real redeploy is a deliberate manual action (Actions → Deploy → *Run workflow* → tick "Redeploy smart contracts").
 
 ---
 
@@ -765,12 +791,18 @@ cd contracts
 make deploy STELLAR_SECRET_KEY=S...     # or the manual deploy-contract job
 ```
 
-### Frontend (Vercel)
-Set the `NEXT_PUBLIC_*` variables (see §23) in **Vercel → Settings → Environment Variables**, then `vercel --prod` (or the `deploy-frontend` job). `NEXT_PUBLIC_*` values are **inlined at build time** — change them ⇒ rebuild.
+### Relayer (Render) — https://matefi.onrender.com
+- **Root Directory:** `relayer` · **Build:** `npm install && npm run build` · **Start:** `npm run migrate && node dist/index.js`
+- Env: `MONGODB_URI` (MongoDB Atlas connection string), `MONGODB_DB=matefi`, `RELAYER_SECRET`, `TREASURY_ADDRESS`, the five `*_CONTRACT_ID`s, `USDC_CONTRACT_ID`, and `WS_PORT=0` (share the HTTP port on Render's single-port model). `PORT` is injected by Render.
+- Health check: `GET https://matefi.onrender.com/api/health` → `{"status":"ok","db":true}`.
+
+### Frontend (Vercel) — https://matefi.vercel.app
+Set the `NEXT_PUBLIC_*` variables (see §23) in **Vercel → Settings → Environment Variables**, then redeploy. `NEXT_PUBLIC_*` values are **inlined at build time** — change them ⇒ rebuild (build cache off).
 
 ### Rollback
 - **Frontend:** Vercel keeps every deployment immutable — use *Instant Rollback* (or `vercel rollback <url>`).
-- **Contracts:** Soroban deploys are immutable per contract id. To roll back, re-point the frontend `NEXT_PUBLIC_*_ID` at the previous known-good contract ids and redeploy the frontend.
+- **Relayer:** Render keeps prior deploys — use **Rollback** in the service dashboard; MongoDB data is unaffected.
+- **Contracts:** Soroban deploys are immutable per contract id. To roll back, re-point the frontend + relayer `*_ID` env vars at the previous known-good contract ids and redeploy.
 
 ### Verification
 After deploy: open a match page → the prize pool + odds read live on-chain state (proves contract reads work), connect Freighter, place a bet — the tx hash links to stellar.expert.
@@ -791,10 +823,22 @@ Frontend (`frontend/.env.local` locally, Vercel env in prod):
 | `NEXT_PUBLIC_ORACLE_GATEWAY_ID` | `C…` | oracle_gateway contract id |
 | `NEXT_PUBLIC_SETTLEMENT_ID` | `C…` | settlement contract id |
 | `NEXT_PUBLIC_USDC_CONTRACT_ID` | `C…` | USDC SAC |
-| `NEXT_PUBLIC_API_URL` | `https://…/api` | relayer REST API |
-| `NEXT_PUBLIC_WS_URL` | `wss://…` | relayer WebSocket |
+| `NEXT_PUBLIC_API_URL` | `https://matefi.onrender.com/api` | relayer REST API |
+| `NEXT_PUBLIC_WS_URL` | `wss://matefi.onrender.com` | relayer WebSocket |
 
-Contracts / CI secrets: `STELLAR_SECRET_KEY` (funded testnet secret), `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, plus the `NEXT_PUBLIC_*` values as GitHub Actions secrets for the deploy job. Templates: `frontend/.env.local.example`, `relayer/.env.example`.
+Relayer (`relayer/.env`, on Render):
+
+| Variable | Example | Notes |
+|---|---|---|
+| `MONGODB_URI` | `mongodb+srv://…mongodb.net/` | MongoDB Atlas connection string |
+| `MONGODB_DB` | `matefi` | database name |
+| `RELAYER_SECRET` | `S…` | funded testnet secret (signs oracle/settlement txs) |
+| `TREASURY_ADDRESS` | `G…` | fee/treasury account |
+| `*_CONTRACT_ID` (×5) | `C…` | the five deployed contract ids |
+| `USDC_CONTRACT_ID` | `C…` | USDC SAC |
+| `WS_PORT` | `0` | `0` shares the HTTP port on Render; a port number for local dev |
+
+CI/CD secrets (GitHub Actions): `STELLAR_SECRET_KEY` (only for a manual contract redeploy), `RENDER_DEPLOY_HOOK_URL` (Render deploy hook), and `VERCEL_DEPLOY_HOOK_URL` **or** `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. Repo **variables** (`vars.*`) may override the default contract IDs, API/WS URLs. Templates: `frontend/.env.local.example`, `relayer/.env.example`.
 
 ---
 
@@ -816,25 +860,18 @@ Contracts / CI secrets: `STELLAR_SECRET_KEY` (funded testnet secret), `VERCEL_TO
 
 **Network:** Stellar Testnet · `Test SDF Network ; September 2015`
 
-| Contract | Address (testnet) |
-|---|---|
-| match_registry | `⟨MATCH_REGISTRY_ID⟩` |
-| escrow_vault | `⟨ESCROW_VAULT_ID⟩` |
-| prediction_pool | `⟨PREDICTION_POOL_ID⟩` |
-| oracle_gateway | `⟨ORACLE_GATEWAY_ID⟩` |
-| settlement | `⟨SETTLEMENT_ID⟩` |
-| USDC (SAC) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-
-**Transaction hashes (contract interaction evidence):**
-
-| Action | Tx Hash | Explorer |
+| Contract | Address (testnet) | Explorer |
 |---|---|---|
-| create_match | `⟨TX_HASH⟩` | [view](⟨TX_EXPLORER_LINK⟩) |
-| join_match | `⟨TX_HASH⟩` | [view](⟨TX_EXPLORER_LINK⟩) |
-| buy_outcome (bet) | `⟨TX_HASH⟩` | [view](⟨TX_EXPLORER_LINK⟩) |
-| settlement.execute | `⟨TX_HASH⟩` | [view](⟨TX_EXPLORER_LINK⟩) |
+| match_registry | `CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27` | [history](https://stellar.expert/explorer/testnet/contract/CALMF5ALUJ4CQMTQZFPD7IGOYVMOWFWAX2ZUZD45T4S5RTYRSO7KQM27) |
+| escrow_vault | `CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB` | [history](https://stellar.expert/explorer/testnet/contract/CA2MU6Y6JP5ZYCX44DNVW2IQIXNQWUNTWJUEBPGBQZHR2OW3DJAAJVUB) |
+| prediction_pool | `CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP` | [history](https://stellar.expert/explorer/testnet/contract/CBN5AFLUV6GFBWTEC7R5EYHQYMLV3O2Y474VGCQIE3CRSXSCIUWM6VIP) |
+| oracle_gateway | `CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU` | [history](https://stellar.expert/explorer/testnet/contract/CDMSMCWOV22QU5GYFWCNCIZSF646SNBRC46HJUWZMIPSGPOYUWJZDTLU) |
+| settlement | `CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX` | [history](https://stellar.expert/explorer/testnet/contract/CBT5K7PFCV3JCDUVAQZBWYK7YXBXSZ7TKSH2ZMPZC62FALNBAFGGPXYX) |
+| USDC (SAC) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [view](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 
-Explore every contract's deploy + interaction transaction hashes on [stellar.expert](https://stellar.expert/explorer/testnet) (Contract → History tab lists every invocation hash). Live frontend: ⟨LIVE_APP_URL⟩.
+**Transaction-hash evidence:** every contract interaction (`create_match`, `join_match`, `buy_outcome`, `settlement.execute`, etc.) is recorded on-chain — open any contract above and see its **History** tab on stellar.expert, which lists each invocation's transaction hash and payload.
+
+**Live deployments:** frontend → https://matefi.vercel.app · relayer API → https://matefi.onrender.com/api/health
 
 **Test evidence:** 69 passing contract tests + 33 passing frontend tests (§20).
 **Build evidence:** `npm run build` prerenders all routes; `cargo build --target wasm32v1-none --release` produces 5 contract wasms.
