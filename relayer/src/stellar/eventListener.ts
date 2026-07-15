@@ -1,5 +1,5 @@
 // src/stellar/eventListener.ts — polls Soroban RPC getEvents for the five
-// MateFi contracts, mirrors on-chain state into PostgreSQL and broadcasts
+// MateFi contracts, mirrors on-chain state into MongoDB and broadcasts
 // websocket events (README sections 8 + 13).
 //
 // Skips gracefully (single startup warning) when no contract IDs are

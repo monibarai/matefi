@@ -1,5 +1,5 @@
-// src/db/queries/moves.ts — query helpers for the moves table.
-import { db } from '../client';
+// src/db/queries/moves.ts — query helpers for the moves collection.
+import { collection, nextSeq } from '../client';
 
 export interface MoveRow {
   id: number;
@@ -18,22 +18,28 @@ export async function insertMove(params: {
   fen: string;
   player: string;
 }): Promise<void> {
-  await db.query(
-    `INSERT INTO moves (match_id, move_number, move_uci, fen, player)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [params.matchId, params.moveNumber, params.moveUci, params.fen, params.player]
-  );
+  const col = await collection('moves');
+  await col.insertOne({
+    id: await nextSeq('moves'),
+    match_id: params.matchId,
+    move_number: params.moveNumber,
+    move_uci: params.moveUci,
+    fen: params.fen,
+    player: params.player,
+    created_at: new Date(),
+  });
 }
 
 export async function listMoves(matchId: string): Promise<MoveRow[]> {
-  const res = await db.query(
-    'SELECT * FROM moves WHERE match_id = $1 ORDER BY move_number ASC',
-    [matchId]
-  );
-  return res.rows;
+  const col = await collection('moves');
+  const rows = await col
+    .find({ match_id: matchId }, { projection: { _id: 0 } })
+    .sort({ move_number: 1 })
+    .toArray();
+  return rows as unknown as MoveRow[];
 }
 
 export async function countMoves(matchId: string): Promise<number> {
-  const res = await db.query('SELECT COUNT(*)::int AS n FROM moves WHERE match_id = $1', [matchId]);
-  return res.rows[0].n as number;
+  const col = await collection('moves');
+  return col.countDocuments({ match_id: matchId });
 }

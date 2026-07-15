@@ -5,7 +5,7 @@ import tradersRouter from './traders';
 import { config, anyContractConfigured } from '../config';
 import { engine } from '../chess/engine';
 import { activeGameCount } from '../chess/gameManager';
-import { db } from '../db/client';
+import { pingDb } from '../db/client';
 
 const router = Router();
 
@@ -13,7 +13,7 @@ const router = Router();
 router.get('/health', async (_req: Request, res: Response) => {
   let dbOk = false;
   try {
-    await db.query('SELECT 1');
+    await pingDb();
     dbOk = true;
   } catch {
     /* db down */

@@ -28,8 +28,10 @@ export const config = {
   USDC_CONTRACT_ID: env('USDC_CONTRACT_ID'),
   TREASURY_ADDRESS: env('TREASURY_ADDRESS'),
 
-  // Database
-  DATABASE_URL: env('DATABASE_URL', 'postgresql://matefi:matefi@localhost:5432/matefi'),
+  // Database (MongoDB). MONGODB_URI wins; DATABASE_URL kept as a fallback so an
+  // existing env var still works. MONGODB_DB is the database name.
+  MONGODB_URI: env('MONGODB_URI', env('DATABASE_URL', 'mongodb://localhost:27017')),
+  MONGODB_DB: env('MONGODB_DB', 'matefi'),
 
   // Server
   PORT: intEnv('PORT', 3000),

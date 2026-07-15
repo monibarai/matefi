@@ -9,7 +9,7 @@ import { startWebSocketServer, stopWebSocketServer } from './websocket/server';
 import { startEventListener, stopEventListener } from './stellar/eventListener';
 import { reconcileSettlements } from './stellar/reconcile';
 import { engine } from './chess/engine';
-import { closeDb, db } from './db/client';
+import { closeDb, pingDb } from './db/client';
 
 async function main(): Promise<void> {
   console.log('[relayer] MateFi relayer starting…');
@@ -17,11 +17,11 @@ async function main(): Promise<void> {
 
   // Verify DB connectivity early.
   try {
-    await db.query('SELECT 1');
-    console.log('[relayer] PostgreSQL connection ok');
+    await pingDb();
+    console.log('[relayer] MongoDB connection ok');
   } catch (e) {
-    console.error('[relayer] PostgreSQL unreachable:', (e as Error).message);
-    console.error('[relayer] check DATABASE_URL and run `npm run migrate`');
+    console.error('[relayer] MongoDB unreachable:', (e as Error).message);
+    console.error('[relayer] check MONGODB_URI and run `npm run migrate`');
   }
 
   // Warm up Stockfish (non-blocking for the API but logged).
