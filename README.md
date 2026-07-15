@@ -1,7 +1,7 @@
 # MateFi — On-Chain Chess Betting & Prediction Market on Stellar
 
-<!-- ⟨paste hero screenshot here⟩ -->
-<img width="2880" height="1565" alt="MateFi hero screenshot" src="⟨HERO_SCREENSHOT_URL⟩" />
+<img width="2879" height="1486" alt="Screenshot from 2026-07-15 18-05-02" src="https://github.com/user-attachments/assets/e5c43134-7c93-456b-9dc2-79511264f501" />
+
 
 <div align="center">
 <img src="https://img.shields.io/badge/Stellar-Soroban-7B2FBE?style=for-the-badge" />
@@ -73,8 +73,11 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 ## Mobile Responsive UI
 
 <div align="center">
-  <!-- ⟨paste mobile screenshot here⟩ -->
-  <img width="300" alt="MateFi mobile screenshot" src="⟨MOBILE_SCREENSHOT_URL⟩" />
+  <img
+    src="https://github.com/user-attachments/assets/cddc2bb9-b702-4d61-aec0-abbdcc9cbd77"
+    alt="Mobile Responsive UI"
+    width="300"
+  />
 </div>
 
 ## Table of Contents
