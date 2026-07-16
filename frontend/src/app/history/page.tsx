@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { shortAddress, txExplorerUrl } from '@/lib/stellar';
 import { stroopsToUsdc } from '@/lib/usdc';
 import { API_URL } from '@/lib/stellar';
+import { Badge } from '@/components/shared/Badge';
 import type { MatchRecord, Winner } from '@/types/match';
 
 const WINNER_LABEL: Record<Winner, string> = {
@@ -135,13 +136,20 @@ export default function HistoryPage() {
                       {stroopsToUsdc(m.bet_amount).toFixed(0)} USDC
                     </td>
                     <td className="px-4 py-3">
-                      {m.winner ? (
-                        <span className={`font-mono text-xs font-medium ${WINNER_COLOR[m.winner]}`}>
-                          {WINNER_LABEL[m.winner]}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-bone-faint">—</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {m.winner ? (
+                          <span className={`font-mono text-xs font-medium ${WINNER_COLOR[m.winner]}`}>
+                            {WINNER_LABEL[m.winner]}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-xs text-bone-faint">—</span>
+                        )}
+                        {m.flagged && (
+                          <Badge tone="danger" title="Move-match rate against Stockfish crossed the suspicion threshold">
+                            ⚠
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {m.settlement_tx_hash ? (

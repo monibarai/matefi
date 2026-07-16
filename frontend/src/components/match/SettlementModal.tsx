@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { stroopsToUsdc } from '@/lib/usdc';
 import { shortAddress, txExplorerUrl } from '@/lib/stellar';
+import { DisputeButton } from './DisputeButton';
 import type { Winner, MatchRecord } from '@/types/match';
 
 interface SettlementModalProps {
@@ -13,6 +14,10 @@ interface SettlementModalProps {
   playerPrize?: number;
   netPool?: number;
   txHash?: string | null;
+  matchId?: string;
+  walletAddress?: string | null;
+  isPlayer?: boolean;
+  disputeStatus?: 'none' | 'submitted' | 'disputed' | 'finalized';
 }
 
 const WINNER_CONFIG: Record<Winner, { label: string; emoji: string; color: string; bg: string; border: string }> = {
@@ -21,7 +26,18 @@ const WINNER_CONFIG: Record<Winner, { label: string; emoji: string; color: strin
   Draw: { label: 'Draw', emoji: '🤝', color: 'text-draw', bg: 'bg-draw/8', border: 'border-draw/30' },
 };
 
-export function SettlementModal({ winner, reason, record, playerPrize, netPool, txHash }: SettlementModalProps) {
+export function SettlementModal({
+  winner,
+  reason,
+  record,
+  playerPrize,
+  netPool,
+  txHash,
+  matchId,
+  walletAddress,
+  isPlayer,
+  disputeStatus = 'none',
+}: SettlementModalProps) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setVisible(true); }, []);
 
@@ -97,6 +113,10 @@ export function SettlementModal({ winner, reason, record, playerPrize, netPool, 
                 {shortAddress(txHash, 8)} ↗
               </a>
             </div>
+          )}
+
+          {isPlayer && matchId && (
+            <DisputeButton matchId={matchId} walletAddress={walletAddress ?? null} disputeStatus={disputeStatus} />
           )}
 
           <div className="flex gap-2 pt-2">

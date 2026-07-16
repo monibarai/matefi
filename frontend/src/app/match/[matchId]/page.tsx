@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useMatch } from '@/hooks/useMatch';
+import { useAntiCheat } from '@/hooks/useAntiCheat';
 import { useWallet } from '@/hooks/useWallet';
 import { shortAddress } from '@/lib/stellar';
 import { stroopsToUsdc } from '@/lib/usdc';
@@ -13,6 +14,7 @@ import { TradingPanel } from '@/components/trading/TradingPanel';
 import { PlayerInfo } from '@/components/match/PlayerInfo';
 import { PrizePool } from '@/components/match/PrizePool';
 import { SettlementModal } from '@/components/match/SettlementModal';
+import { Badge } from '@/components/shared/Badge';
 import { API_URL } from '@/lib/stellar';
 
 interface PageProps {
@@ -23,6 +25,8 @@ export default function MatchPage({ params }: PageProps) {
   const { matchId } = params;
   const { address } = useWallet();
   const { record, live, loading, error, wsStatus } = useMatch(matchId);
+  const { live: antiCheat } = useAntiCheat(matchId);
+  const isFlagged = antiCheat.flaggedPlayers.size > 0;
 
   // Open match with no second player yet = still in matchmaking.
   const waiting = record?.status === 'open' && !record.player_b;
@@ -122,6 +126,12 @@ export default function MatchPage({ params }: PageProps) {
               </span>
             ) : wsStatus === 'connecting' ? 'Connecting…' : 'Disconnected'}
           </span>
+
+          {isFlagged && (
+            <Badge tone="danger" title="Move-match rate against Stockfish crossed the suspicion threshold">
+              ⚠ Flagged
+            </Badge>
+          )}
 
           {waiting && (
             <span className="tag text-lock">Waiting for opponent…</span>
@@ -268,6 +278,10 @@ export default function MatchPage({ params }: PageProps) {
           playerPrize={live.settlement?.playerPrize}
           netPool={live.settlement?.netPool}
           txHash={live.settlement?.txHash ?? null}
+          matchId={matchId}
+          walletAddress={address}
+          isPlayer={isPlayer}
+          disputeStatus={antiCheat.disputeStatus}
         />
       )}
     </div>

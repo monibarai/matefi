@@ -36,6 +36,8 @@ export interface MatchRecord {
   /** settlement transaction hash on Stellar */
   settlement_tx_hash?: string | null;
   settled_at?: string | null;
+  /** True if any player's move-match rate crossed the anti-cheat suspicion threshold. */
+  flagged?: boolean;
 }
 
 /** A row from the `settlements` table (GET /api/matches/:id → settlement). */

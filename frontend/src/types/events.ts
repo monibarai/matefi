@@ -74,6 +74,38 @@ export interface SettlementDoneEvent {
   txHash?: string | null;
 }
 
+/** A player's move-match rate against Stockfish crossed the suspicion threshold. */
+export interface MatchFlaggedEvent {
+  type: 'MATCH_FLAGGED';
+  matchId: string;
+  player: string;
+  suspicionScore: number; // 0..1
+  movesAnalyzed: number;
+  message: string;
+}
+
+/** Result posted on-chain; the dispute challenge window has started. */
+export interface ResultSubmittedEvent {
+  type: 'RESULT_SUBMITTED';
+  matchId: string;
+  winner: Winner;
+  submittedAt: number; // epoch ms
+  windowSecs: number;
+}
+
+export interface DisputeOpenedEvent {
+  type: 'DISPUTE_OPENED';
+  matchId: string;
+  openedBy: string;
+  reason: string;
+}
+
+export interface DisputeResolvedEvent {
+  type: 'DISPUTE_RESOLVED';
+  matchId: string;
+  finalWinner: Winner;
+}
+
 export type WsEvent =
   | ConnectedEvent
   | MatchStartedEvent
@@ -82,6 +114,10 @@ export type WsEvent =
   | MarketLockedEvent
   | GameOverEvent
   | BetPlacedEvent
-  | SettlementDoneEvent;
+  | SettlementDoneEvent
+  | MatchFlaggedEvent
+  | ResultSubmittedEvent
+  | DisputeOpenedEvent
+  | DisputeResolvedEvent;
 
 export type WsEventType = WsEvent['type'];

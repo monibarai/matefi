@@ -12,10 +12,12 @@ import {
   xdr,
   rpc,
 } from '@stellar/stellar-sdk';
+import { Buffer } from 'buffer';
 import { getKit, getRpcServer, NETWORK_PASSPHRASE } from './stellar';
 import { usdcToStroops } from './usdc';
 import { ensureKitWallet } from '@/hooks/useWallet';
 import type { Outcome } from '@/types/trading';
+import type { Winner, DisputeOutcome } from '@/types/anticheat';
 
 // --- Contract ids (inlined by Next at build time) -----------------------------
 
@@ -240,5 +242,70 @@ export async function placeTrade(
       nativeToScVal(amountStroops, { type: 'i128' }),
     ],
     traderAddress,
+  );
+}
+
+// --- Dispute resolution ---------------------------------------------------
+
+/** Soroban enum unit variants encode as Vec[Symbol]. */
+function winnerScVal(winner: Winner): xdr.ScVal {
+  return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(winner)]);
+}
+
+/**
+ * Data-carrying enum variants encode as Vec[Symbol(variant), ...fields].
+ * Mirrors `contracts::settlement::state::DisputeOutcome`.
+ */
+function disputeOutcomeScVal(outcome: DisputeOutcome): xdr.ScVal {
+  if (outcome.tag === 'Uphold' || outcome.tag === 'Void') {
+    return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(outcome.tag)]);
+  }
+  return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Reverse'), winnerScVal(outcome.winner)]);
+}
+
+/**
+ * Open a dispute against a match's pending result, inside the challenge
+ * window. Callable by either match player (or the arbiter). Player-signed —
+ * mirrors `createMatch`/`placeTrade`, not a relayer-signed call.
+ */
+export async function dispute(
+  matchId: string | bigint,
+  disputerAddress: string,
+  reason: string,
+): Promise<void> {
+  const settlementId = requireContractId('settlement', 'NEXT_PUBLIC_SETTLEMENT_ID');
+
+  await invokeWithWallet(
+    settlementId,
+    'dispute',
+    [
+      nativeToScVal(BigInt(matchId), { type: 'u64' }),
+      nativeToScVal(disputerAddress, { type: 'address' }),
+      nativeToScVal(Buffer.from(reason, 'utf8'), { type: 'bytes' }),
+    ],
+    disputerAddress,
+  );
+}
+
+/**
+ * Arbiter-only. Resolves a disputed match: uphold the original result,
+ * reverse to a different winner, or void (settled as a Draw).
+ */
+export async function resolveDispute(
+  matchId: string | bigint,
+  arbiterAddress: string,
+  outcome: DisputeOutcome,
+): Promise<void> {
+  const settlementId = requireContractId('settlement', 'NEXT_PUBLIC_SETTLEMENT_ID');
+
+  await invokeWithWallet(
+    settlementId,
+    'resolve_dispute',
+    [
+      nativeToScVal(BigInt(matchId), { type: 'u64' }),
+      nativeToScVal(arbiterAddress, { type: 'address' }),
+      disputeOutcomeScVal(outcome),
+    ],
+    arbiterAddress,
   );
 }
