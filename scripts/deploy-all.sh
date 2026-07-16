@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # scripts/deploy-all.sh — Build, deploy, and initialize all 5 ChessBet contracts.
 # Usage:
-#   RELAYER_PUBLIC_KEY=G...  TREASURY_ADDRESS=G...  ./scripts/deploy-all.sh
+#   RELAYER_PUBLIC_KEY=G...  TREASURY_ADDRESS=G...  ARBITER_ADDRESS=G...  ./scripts/deploy-all.sh
+#
+# ARBITER_ADDRESS defaults to TREASURY_ADDRESS if unset — the arbiter resolves
+# Settlement disputes (contracts/settlement §"dispute"); use a dedicated key
+# in production via `settlement.set_arbiter` after deploy, or set this env
+# var before running.
 #
 # Prerequisites:
 #   - stellar CLI installed and "deployer" key configured
@@ -17,6 +22,7 @@ NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 USDC_CONTRACT_ID="${USDC_CONTRACT_ID:-CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA}"
 RELAYER_PUBLIC_KEY="${RELAYER_PUBLIC_KEY:?RELAYER_PUBLIC_KEY must be set}"
 TREASURY_ADDRESS="${TREASURY_ADDRESS:?TREASURY_ADDRESS must be set}"
+ARBITER_ADDRESS="${ARBITER_ADDRESS:-$TREASURY_ADDRESS}"
 
 CONTRACTS_DIR="$(cd "$(dirname "$0")/.." && pwd)/contracts"
 WASM_DIR="$CONTRACTS_DIR/target/wasm32v1-none/release"
@@ -105,7 +111,8 @@ stellar contract invoke --id "$SETTLEMENT_ID" --source "$SOURCE" --network "$NET
   --prediction_pool "$POOL_ID" \
   --match_registry "$REGISTRY_ID" \
   --oracle "$ORACLE_ID" \
-  --treasury "$TREASURY_ADDRESS"
+  --treasury "$TREASURY_ADDRESS" \
+  --arbiter "$ARBITER_ADDRESS"
 
 echo "Initializing MatchRegistry..."
 stellar contract invoke --id "$REGISTRY_ID" --source "$SOURCE" --network "$NETWORK" -- \
@@ -148,3 +155,6 @@ echo "PREDICTION_POOL_CONTRACT_ID=$POOL_ID"
 echo "ORACLE_GATEWAY_CONTRACT_ID=$ORACLE_ID"
 echo "SETTLEMENT_CONTRACT_ID=$SETTLEMENT_ID"
 echo "USDC_CONTRACT_ID=$USDC_CONTRACT_ID"
+echo ""
+echo "=== Update frontend/.env.local ==="
+echo "NEXT_PUBLIC_ARBITER_ADDRESS=$ARBITER_ADDRESS"

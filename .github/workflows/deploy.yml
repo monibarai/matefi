@@ -206,6 +206,7 @@ jobs:
           NEXT_PUBLIC_ORACLE_GATEWAY_ID: ${{ needs.deploy-contract.outputs.oracle_gateway_id }}
           NEXT_PUBLIC_SETTLEMENT_ID: ${{ needs.deploy-contract.outputs.settlement_id }}
           NEXT_PUBLIC_USDC_CONTRACT_ID: ${{ env.USDC_CONTRACT_ID }}
+          NEXT_PUBLIC_ARBITER_ADDRESS: ${{ vars.NEXT_PUBLIC_ARBITER_ADDRESS }}
 
       - name: Upload frontend build artifact
         uses: actions/upload-artifact@v4

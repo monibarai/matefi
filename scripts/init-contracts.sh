@@ -20,6 +20,7 @@ USDC_CONTRACT_ID=$(python3 -c "import json; d=json.load(open('$DOCS')); print(d[
 
 RELAYER_PUBLIC_KEY="${RELAYER_PUBLIC_KEY:?RELAYER_PUBLIC_KEY must be set}"
 TREASURY_ADDRESS="${TREASURY_ADDRESS:?TREASURY_ADDRESS must be set}"
+ARBITER_ADDRESS="${ARBITER_ADDRESS:-$TREASURY_ADDRESS}"
 SOURCE="${SOURCE:-deployer}"
 NETWORK="${NETWORK:-testnet}"
 
@@ -43,7 +44,8 @@ stellar contract invoke --id "$ORACLE_ID" --source "$SOURCE" --network "$NETWORK
 
 stellar contract invoke --id "$SETTLEMENT_ID" --source "$SOURCE" --network "$NETWORK" -- initialize \
   --usdc_token "$USDC_CONTRACT_ID" --escrow_vault "$ESCROW_ID" --prediction_pool "$POOL_ID" \
-  --match_registry "$REGISTRY_ID" --oracle "$ORACLE_ID" --treasury "$TREASURY_ADDRESS"
+  --match_registry "$REGISTRY_ID" --oracle "$ORACLE_ID" --treasury "$TREASURY_ADDRESS" \
+  --arbiter "$ARBITER_ADDRESS"
 
 stellar contract invoke --id "$REGISTRY_ID" --source "$SOURCE" --network "$NETWORK" -- initialize \
   --usdc_token "$USDC_CONTRACT_ID" --escrow_vault "$ESCROW_ID" \

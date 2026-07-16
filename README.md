@@ -105,6 +105,7 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 14. [Testing Strategy](#14-testing-strategy)
 15. [Security Considerations](#15-security-considerations)
 16. [Known Limitations & Future Work](#16-known-limitations--future-work)
+    - 16.1 [Anti-Cheat Detection & Dispute Resolution](#161-anti-cheat-detection--dispute-resolution)
 18. [Wallet Integration (Freighter)](#18-wallet-integration-freighter)
 19. [Event Streaming & Real-Time Updates](#19-event-streaming--real-time-updates)
 20. [Testing — Run & Outputs](#20-testing--run--outputs)
@@ -668,14 +669,28 @@ Stakes are only released by `settlement.execute` on a verified result, or refund
 
 ## 16. Known Limitations & Future Work
 
-| Limitation | Impact | Future fix |
+| Limitation | Impact | Status / Future fix |
 |---|---|---|
-| Single relayer oracle | Centralized eval source | Decentralize the evaluation oracle / multi-signer |
+| Single relayer oracle | Centralized eval source | **Partially mitigated**: results now go through a challenge window + dispute/arbiter path (§16.1) instead of paying out on a single relayer's say-so. The eval *source* itself is still one relayer — full decentralization (multi-signer oracle) remains future work. |
 | USDC only | No multi-asset stakes | Add more SEP-41 assets |
 | Testnet only | Not real value | Mainnet deploy with production USDC |
-| Manual settlement trigger | Relayer must be online | Keeper / redundancy for `settlement.execute` |
+| Manual settlement trigger | Relayer must be online | **Fixed**: `Settlement.finalize` is permissionless and a relayer-side keeper (`jobs/disputeWindowKeeper.ts`) calls it automatically once a result's challenge window elapses — any process holding a funded account can run the same keeper, so no single relayer instance is a hard dependency. |
+| No cheat detection | Engine-assisted play was undetectable and unappealable | **Fixed**: per-move Stockfish top-choice comparison flags suspiciously high engine-match rates (§16.1), and either player can dispute a result inside the challenge window for arbiter review. |
 | Frontend test coverage | ~11% statements | Expand hook + component tests |
 | Soroban resource limits | Large markets may hit compute limits | Batch reads, optimize storage |
+
+### 16.1 Anti-Cheat Detection & Dispute Resolution
+
+Added in response to the "no new features since June" review — the prior submission had no way to catch engine-assisted play or contest a bad result once it landed.
+
+**Anti-cheat.** `contracts/oracle_gateway` already stored a Stockfish eval for every ply; the relayer previously discarded the engine's recommended move. Now `relayer/src/chess/engine.ts` also captures Stockfish's top choice (UCI `bestmove`) for the position each player was actually looking at (evaluated at a shallower `ANTICHEAT_DEPTH` to bound engine load), and compares it against the move they played. Per-move results land in Mongo's `move_analysis` collection; on match completion, `checkAntiCheatFlags` aggregates a top-1 match rate per player (skipping the opening) and — only above both a rate and a minimum-move-count threshold — writes an `anti_cheat_flags` doc and broadcasts `MATCH_FLAGGED`. This is informational only: it never touches settlement automatically (naive "high match rate = cheater" heuristics produce false positives on strong players in forced/simple positions), and instead feeds the "Flagged" badge on the match/history pages and the evidence shown to the arbiter on a dispute.
+
+**Dispute resolution.** `contracts/settlement` no longer pays out the instant a result posts. `OracleGateway.post_result` now calls `Settlement.submit_result`, which parks the match in a new `MatchState::PendingFinalization` and starts a challenge window (`DEFAULT_CHALLENGE_WINDOW_SECS`, 1 hour by default, adjustable via `set_challenge_window`). From there:
+- No dispute → `Settlement.finalize` (permissionless) runs the original settlement cascade once the window elapses. The relayer's `disputeWindowKeeper` job calls this automatically so no match gets stuck waiting on a human.
+- Either player (or the arbiter) calls `Settlement.dispute(match_id, disputer, reason)` inside the window → the match moves to `MatchState::Disputed` and funds stay frozen.
+- The arbiter (a Settlement-configured address, `NEXT_PUBLIC_ARBITER_ADDRESS` on the frontend) calls `Settlement.resolve_dispute` with `Uphold` / `Reverse(winner)` / `Void` — `Void` reuses the existing Draw settlement path (players refunded, bettors paid via the pool's existing draw payout), so no new EscrowVault/PredictionPool surface was needed.
+
+The dispute UI lives at `/admin/disputes` (arbiter-only, gated by wallet address) and as a "Dispute this match" action on the settlement modal for players, inside the challenge window.
 
 ---
 
@@ -825,6 +840,7 @@ Frontend (`frontend/.env.local` locally, Vercel env in prod):
 | `NEXT_PUBLIC_USDC_CONTRACT_ID` | `C…` | USDC SAC |
 | `NEXT_PUBLIC_API_URL` | `https://matefi.onrender.com/api` | relayer REST API |
 | `NEXT_PUBLIC_WS_URL` | `wss://matefi.onrender.com` | relayer WebSocket |
+| `NEXT_PUBLIC_ARBITER_ADDRESS` | `G…` | gates `/admin/disputes`; must match the address passed to `settlement.initialize` (§16.1) |
 
 Relayer (`relayer/.env`, on Render):
 
@@ -837,6 +853,9 @@ Relayer (`relayer/.env`, on Render):
 | `*_CONTRACT_ID` (×5) | `C…` | the five deployed contract ids |
 | `USDC_CONTRACT_ID` | `C…` | USDC SAC |
 | `WS_PORT` | `0` | `0` shares the HTTP port on Render; a port number for local dev |
+| `ANTICHEAT_SUSPICION_THRESHOLD` | `0.85` | top-1 engine-match rate that triggers a `MATCH_FLAGGED` flag (§16.1) |
+| `CHALLENGE_WINDOW_SECS` | `3600` | must match Settlement's on-chain challenge window — used to compute local dispute deadlines |
+| `DISPUTE_KEEPER_INTERVAL_MS` | `60000` | how often the dispute-window keeper polls for matches due for `finalize()` |
 
 CI/CD secrets (GitHub Actions): `STELLAR_SECRET_KEY` (only for a manual contract redeploy), `RENDER_DEPLOY_HOOK_URL` (Render deploy hook), and `VERCEL_DEPLOY_HOOK_URL` **or** `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. Repo **variables** (`vars.*`) may override the default contract IDs, API/WS URLs. Templates: `frontend/.env.local.example`, `relayer/.env.example`.
 
@@ -873,8 +892,10 @@ CI/CD secrets (GitHub Actions): `STELLAR_SECRET_KEY` (only for a manual contract
 
 **Live deployments:** frontend → https://matefi.vercel.app · relayer API → https://matefi.onrender.com/api/health
 
-**Test evidence:** 69 passing contract tests + 33 passing frontend tests (§20).
+**Test evidence:** 89 passing contract tests + 33 passing frontend tests (§20).
 **Build evidence:** `npm run build` prerenders all routes; `cargo build --target wasm32v1-none --release` produces 5 contract wasms.
+
+> **Pending redeploy:** the `settlement` and `match_registry` addresses above predate the dispute-resolution state machine (§16.1) — their `initialize` signature/behavior changed (`settlement` now takes an `arbiter` param). Run `scripts/deploy-all.sh` (or `init-contracts.sh` against fresh IDs) to redeploy those two contracts, then update this table, `docs/contract-addresses.json`, the GitHub repo Variables (`NEXT_PUBLIC_SETTLEMENT_ID`/`NEXT_PUBLIC_MATCH_REGISTRY_ID`), Render's relayer env vars, and `NEXT_PUBLIC_ARBITER_ADDRESS`.
 
 ---
 
@@ -884,8 +905,6 @@ The product went through a round of hands-on user feedback. Each row maps the fe
 
 | # | User Feedback | Implementation | Commit |
 |---|---|---|---|
-| 1 | ⟨feedback⟩ | ⟨implementation⟩ | [`⟨commit⟩`](⟨COMMIT_LINK⟩) |
-| 2 | ⟨feedback⟩ | ⟨implementation⟩ | [`⟨commit⟩`](⟨COMMIT_LINK⟩) |
-| 3 | ⟨feedback⟩ | ⟨implementation⟩ | [`⟨commit⟩`](⟨COMMIT_LINK⟩) |
+| 1 | Reviewer noted the resubmission showed no meaningful new features since the June version — recent commits were infra/docs only (Mongo migration, CI, deploy pipeline, README updates), not product changes. | Shipped two real product features addressing the project's own §16 "Known Limitations" list: **anti-cheat detection** (per-move Stockfish move-matching, suspicion flagging — §16.1) and **dispute resolution** (challenge window + player/arbiter dispute flow replacing instant atomic settlement — §16.1), across all three layers: `contracts/settlement` + `contracts/match_registry` (new state machine, 89 passing contract tests), the relayer (`chess/engine.ts`, `chess/gameManager.ts`, `jobs/disputeWindowKeeper.ts`, new API routes), and the frontend (`/admin/disputes`, flagged badges, dispute UI). | [`⟨commit⟩`](⟨COMMIT_LINK⟩) |
 
 ---
