@@ -57,6 +57,27 @@ export const config = {
   // settlement never executed (winner unpaid, no settlement tx). This moves
   // funds on-chain, so it is opt-in; run `npm run reconcile` manually otherwise.
   RECONCILE_ON_START: env('RECONCILE_ON_START', 'false').toLowerCase() === 'true',
+
+  // Anti-cheat: per-move engine-match depth (kept shallow relative to
+  // STOCKFISH_DEPTH — this runs on every move on top of the existing eval
+  // pipeline, so it trades some precision for not doubling engine load).
+  ANTICHEAT_DEPTH: intEnv('ANTICHEAT_DEPTH', 14),
+  // A match is flagged only once a player's top-1 engine-match rate (after
+  // the opening) is at/above this rate over at least MIN_MOVES_FOR_FLAG
+  // moves — flagging is informational (never auto-affects settlement), but
+  // still shouldn't trigger on a handful of forced moves in an endgame.
+  ANTICHEAT_SUSPICION_THRESHOLD: Number(env('ANTICHEAT_SUSPICION_THRESHOLD', '0.85')),
+  ANTICHEAT_MIN_MOVES: intEnv('ANTICHEAT_MIN_MOVES', 15),
+  ANTICHEAT_OPENING_CUTOFF_PLY: intEnv('ANTICHEAT_OPENING_CUTOFF_PLY', 8),
+
+  // Dispute window keeper: how often to poll for PendingFinalization matches
+  // whose challenge window has elapsed and call Settlement.finalize.
+  DISPUTE_KEEPER_INTERVAL_MS: intEnv('DISPUTE_KEEPER_INTERVAL_MS', 60_000),
+  // Must match contracts/settlement's DEFAULT_CHALLENGE_WINDOW_SECS (or
+  // whatever `set_challenge_window` last set on-chain) — used to compute the
+  // local dispute_state deadline from the on-chain `ResultSubmitted` event's
+  // timestamp, since the event itself doesn't carry the window length.
+  DEFAULT_CHALLENGE_WINDOW_SECS: intEnv('CHALLENGE_WINDOW_SECS', 3600),
 };
 
 /**

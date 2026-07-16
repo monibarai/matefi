@@ -2,6 +2,8 @@
 import { Router, Request, Response } from 'express';
 import matchesRouter from './matches';
 import tradersRouter from './traders';
+import anticheatRouter from './anticheat';
+import disputesRouter from './disputes';
 import { config, anyContractConfigured } from '../config';
 import { engine } from '../chess/engine';
 import { activeGameCount } from '../chess/gameManager';
@@ -31,5 +33,7 @@ router.get('/health', async (_req: Request, res: Response) => {
 
 router.use(matchesRouter);
 router.use(tradersRouter);
+router.use(anticheatRouter);
+router.use(disputesRouter);
 
 export default router;

@@ -13,6 +13,7 @@ import { broadcastToMatch } from '../websocket/server';
 import { initGame } from '../chess/gameManager';
 import * as matchesDb from '../db/queries/matches';
 import * as tradersDb from '../db/queries/traders';
+import * as disputeStateDb from '../db/queries/disputeState';
 
 interface DecodedEvent {
   id: string;
@@ -280,6 +281,10 @@ async function handleEvent(ev: DecodedEvent): Promise<void> {
         txHash: ev.txHash,
       });
 
+      // Covers both the plain-finalize and resolve-dispute paths — either
+      // one ends by emitting MatchSettled from Settlement's shared cascade.
+      await disputeStateDb.markFinalized(matchId, winner);
+
       broadcastToMatch(matchId, {
         type: 'SETTLEMENT_DONE',
         matchId,
@@ -295,8 +300,71 @@ async function handleEvent(ev: DecodedEvent): Promise<void> {
       break;
     }
 
+    case 'ResultSubmitted': {
+      // (match_id, winner, submitted_at)
+      const [rawId, rawWinner, submittedAt] = ev.values;
+      const matchId = String(rawId);
+      const winner = normalizeEnum(rawWinner);
+      const submittedAtDate = new Date(Number(submittedAt) * 1000);
+
+      await disputeStateDb.upsertSubmitted({
+        matchId,
+        winner,
+        submittedAt: submittedAtDate,
+        windowSecs: config.DEFAULT_CHALLENGE_WINDOW_SECS,
+      });
+
+      broadcastToMatch(matchId, {
+        type: 'RESULT_SUBMITTED',
+        matchId,
+        winner: winner as 'PlayerA' | 'PlayerB' | 'Draw',
+        submittedAt: submittedAtDate.getTime(),
+        windowSecs: config.DEFAULT_CHALLENGE_WINDOW_SECS,
+      });
+      console.log(`[events] ResultSubmitted #${matchId}: winner ${winner} — challenge window started`);
+      break;
+    }
+
+    case 'DisputeOpened': {
+      // (match_id, opened_by, opened_at)
+      const [rawId, openedBy, openedAt] = ev.values;
+      const matchId = String(rawId);
+
+      await disputeStateDb.markDisputed({
+        matchId,
+        openedBy: String(openedBy),
+        reason: '', // DisputeReasonNoted (a separate event) carries the reason bytes
+        openedAt: new Date(Number(openedAt) * 1000),
+      });
+
+      broadcastToMatch(matchId, {
+        type: 'DISPUTE_OPENED',
+        matchId,
+        openedBy: String(openedBy),
+        reason: '',
+      });
+      console.log(`[events] DisputeOpened #${matchId} by ${openedBy}`);
+      break;
+    }
+
+    case 'DisputeResolved': {
+      // (match_id, arbiter, final_winner)
+      const [rawId, , rawFinalWinner] = ev.values;
+      const matchId = String(rawId);
+      const finalWinner = normalizeEnum(rawFinalWinner) as 'PlayerA' | 'PlayerB' | 'Draw';
+
+      broadcastToMatch(matchId, {
+        type: 'DISPUTE_RESOLVED',
+        matchId,
+        finalWinner,
+      });
+      console.log(`[events] DisputeResolved #${matchId}: final winner ${finalWinner}`);
+      break;
+    }
+
     default:
-      // EvalPosted / ThresholdCrossed / FundsLocked / etc. — informational
+      // EvalPosted / ThresholdCrossed / FundsLocked / DisputeReasonNoted /
+      // MatchPendingFinalization / MatchDisputed / etc. — informational
       break;
   }
 }

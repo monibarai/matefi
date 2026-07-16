@@ -7,6 +7,7 @@ import { config, anyContractConfigured } from './config';
 import apiRouter from './api/router';
 import { startWebSocketServer, stopWebSocketServer } from './websocket/server';
 import { startEventListener, stopEventListener } from './stellar/eventListener';
+import { startDisputeWindowKeeper, stopDisputeWindowKeeper } from './jobs/disputeWindowKeeper';
 import { reconcileSettlements } from './stellar/reconcile';
 import { engine } from './chess/engine';
 import { closeDb, pingDb } from './db/client';
@@ -50,6 +51,10 @@ async function main(): Promise<void> {
   // Soroban event listener (no-op when contracts unconfigured)
   startEventListener();
 
+  // Dispute-window keeper: finalizes undisputed matches once their challenge
+  // window elapses (no-op when contracts unconfigured).
+  startDisputeWindowKeeper();
+
   // Opt-in: settle any completed-but-unsettled matches left behind by a crash
   // or a failed post_result (winner unpaid, no settlement tx). Off by default
   // because it moves funds on-chain; enable with RECONCILE_ON_START=true.
@@ -62,6 +67,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[relayer] ${signal} received — shutting down`);
     stopEventListener();
+    stopDisputeWindowKeeper();
     engine.quit();
     await stopWebSocketServer();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));

@@ -26,7 +26,8 @@ import { config } from '../config';
 export interface EvalResult {
   score: number;       // centipawns, positive = white better (normalized)
   depth: number;
-  mate: number | null; // moves to mate from white's perspective, null if none
+  mate: number | null;      // moves to mate from white's perspective, null if none
+  bestMove: string | null;  // engine's top choice in UCI form (e.g. "e2e4"), null if degraded/unresolved
 }
 
 /** When Stockfish reports a forced mate, treat as ±9999 cp to force market lock. */
@@ -119,7 +120,7 @@ function heuristicEvaluate(fen: string): EvalResult {
     if (v === undefined) continue;
     score += ch === ch.toUpperCase() ? v : -v;
   }
-  return { score, depth: 0, mate: null };
+  return { score, depth: 0, mate: null, bestMove: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +236,7 @@ export class StockfishEngine {
       const timer = setTimeout(() => {
         console.warn(`[engine] evaluation timeout at depth ${bestDepth} — stopping search`);
         backend.send('stop'); // bestmove will follow, but resolve now with what we have
-        finish({ score: bestScore, depth: bestDepth, mate: mateIn });
+        finish({ score: bestScore, depth: bestDepth, mate: mateIn, bestMove: null });
       }, EVAL_TIMEOUT_MS);
 
       this.currentLineHandler = (line: string) => {
@@ -257,7 +258,11 @@ export class StockfishEngine {
         }
 
         if (line.startsWith('bestmove')) {
-          finish({ score: bestScore, depth: bestDepth, mate: mateIn });
+          // "bestmove e2e4 ponder e7e5" — first token after "bestmove" is the
+          // engine's top choice in UCI form, used for anti-cheat move-matching.
+          const bestMoveMatch = line.match(/^bestmove (\S+)/);
+          const bestMove = bestMoveMatch && bestMoveMatch[1] !== '(none)' ? bestMoveMatch[1] : null;
+          finish({ score: bestScore, depth: bestDepth, mate: mateIn, bestMove });
         }
       };
 

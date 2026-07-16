@@ -98,6 +98,8 @@ export interface CompletedGameRow extends GameRow {
   trading_net: string | null;
   settlement_tx_hash: string | null;
   settled_at: Date | null;
+  /** True if any player's move-match rate crossed the anti-cheat suspicion threshold. */
+  flagged: boolean;
 }
 
 export async function listCompletedGames(limit = 20, offset = 0): Promise<CompletedGameRow[]> {
@@ -111,6 +113,7 @@ export async function listCompletedGames(limit = 20, offset = 0): Promise<Comple
       { $limit: limit },
       { $lookup: { from: 'settlements', localField: 'match_id', foreignField: 'match_id', as: '_s' } },
       { $addFields: { _s: { $arrayElemAt: ['$_s', 0] } } },
+      { $lookup: { from: 'anti_cheat_flags', localField: 'match_id', foreignField: 'match_id', as: '_f' } },
       {
         $addFields: {
           settlement_winner: { $ifNull: ['$_s.winner', null] },
@@ -118,9 +121,10 @@ export async function listCompletedGames(limit = 20, offset = 0): Promise<Comple
           trading_net: { $ifNull: ['$_s.trading_net', null] },
           settlement_tx_hash: { $ifNull: ['$_s.tx_hash', null] },
           settled_at: { $ifNull: ['$_s.settled_at', null] },
+          flagged: { $gt: [{ $size: '$_f' }, 0] },
         },
       },
-      { $project: { _s: 0, _id: 0 } },
+      { $project: { _s: 0, _f: 0, _id: 0 } },
     ])
     .toArray();
   return rows as CompletedGameRow[];

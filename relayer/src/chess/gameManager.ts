@@ -8,6 +8,7 @@ import { oracleGateway, Winner } from '../stellar/contracts/oracleGateway';
 import * as matchesDb from '../db/queries/matches';
 import * as movesDb from '../db/queries/moves';
 import * as evalsDb from '../db/queries/evaluations';
+import * as antiCheatDb from '../db/queries/antiCheat';
 
 export interface GameState {
   matchId: string;
@@ -246,6 +247,11 @@ export async function submitMove(
     return { success: false, error: 'You lost on time', gameOver: true };
   }
 
+  // Position the player was actually looking at when they moved — needed to
+  // ask the engine "what would you have played here?" for anti-cheat
+  // move-matching. Must be captured before applyMove mutates the board.
+  const preMoveFen = state.chess.fen();
+
   // Validate and apply
   const applied = applyMove(state.chess, move);
   if (!applied) return { success: false, error: 'Illegal move' };
@@ -293,7 +299,37 @@ export async function submitMove(
     console.error(`[gameManager] evaluation pipeline failed for ${matchId}:`, e)
   );
 
+  // Async anti-cheat check — independent of the eval-bar pipeline above (that
+  // one scores the position AFTER this move; this one asks what the engine
+  // would have played BEFORE it, to compare against what the player chose).
+  void runAntiCheatCheck(matchId, state.moveCount, playerAddress, preMoveFen, uci).catch((e) =>
+    console.error(`[gameManager] anti-cheat check failed for ${matchId}:`, e)
+  );
+
   return { success: true, gameOver: false, fen };
+}
+
+/**
+ * Compare the player's move against Stockfish's top choice for the position
+ * they were looking at. Feeds `move_analysis` (per-move) which
+ * `checkAntiCheatFlags` aggregates into a suspicion score on match
+ * completion. Never affects settlement directly — flagging is informational.
+ */
+async function runAntiCheatCheck(
+  matchId: string,
+  moveNumber: number,
+  player: string,
+  preMoveFen: string,
+  actualMoveUci: string
+): Promise<void> {
+  const result = await engine.evaluate(preMoveFen, config.ANTICHEAT_DEPTH);
+  await antiCheatDb.insertMoveAnalysis({
+    matchId,
+    moveNumber,
+    player,
+    actualMove: actualMoveUci,
+    engineBest: result.bestMove,
+  });
 }
 
 async function runEvaluation(state: GameState): Promise<void> {
@@ -408,6 +444,70 @@ async function settleMatch(matchId: string, winner: Winner): Promise<void> {
 }
 
 /**
+ * Aggregate the match's per-move analysis into a suspicion score per player
+ * and flag/broadcast any player over threshold. Informational only — never
+ * touches settlement. Run once, on match completion.
+ */
+async function checkAntiCheatFlags(matchId: string): Promise<void> {
+  try {
+    const suspicions = await antiCheatDb.aggregateSuspicion(
+      matchId,
+      config.ANTICHEAT_OPENING_CUTOFF_PLY
+    );
+    for (const s of suspicions) {
+      if (s.movesAnalyzed < config.ANTICHEAT_MIN_MOVES) continue;
+      if (s.matchRate < config.ANTICHEAT_SUSPICION_THRESHOLD) continue;
+
+      await antiCheatDb.recordFlag({
+        matchId,
+        player: s.player,
+        suspicionScore: s.matchRate,
+        movesAnalyzed: s.movesAnalyzed,
+      });
+      broadcastToMatch(matchId, {
+        type: 'MATCH_FLAGGED',
+        matchId,
+        player: s.player,
+        suspicionScore: s.matchRate,
+        movesAnalyzed: s.movesAnalyzed,
+        message: `Move-match rate ${(s.matchRate * 100).toFixed(0)}% over ${s.movesAnalyzed} moves after the opening`,
+      });
+      console.log(
+        `[gameManager] #${matchId} flagged ${s.player} — ${(s.matchRate * 100).toFixed(0)}% engine match over ${s.movesAnalyzed} moves`
+      );
+    }
+  } catch (e) {
+    console.error(`[gameManager] anti-cheat aggregation failed for ${matchId}:`, (e as Error).message);
+  }
+}
+
+/**
+ * Shared tail end of every match-ending path (timeout, checkmate/draw,
+ * resignation): post the result on-chain, broadcast, persist, run the
+ * anti-cheat aggregate, and drop the in-memory state.
+ */
+async function finishMatch(
+  state: GameState,
+  winner: Winner,
+  reason: string,
+  pgn: string
+): Promise<void> {
+  await settleMatch(state.matchId, winner);
+
+  broadcastToMatch(state.matchId, {
+    type: 'GAME_OVER',
+    matchId: state.matchId,
+    winner,
+    reason,
+    pgn,
+  });
+
+  await matchesDb.completeGame(state.matchId, winner, pgn);
+  await checkAntiCheatFlags(state.matchId);
+  games.delete(state.matchId);
+}
+
+/**
  * End the game because the player on the move ran out of time. The opponent
  * wins on time (matching professional flag-fall rules).
  */
@@ -428,19 +528,7 @@ async function handleTimeout(state: GameState): Promise<void> {
   else state.blackMs = 0;
 
   const pgn = state.chess.pgn();
-
-  await settleMatch(state.matchId, winner);
-
-  broadcastToMatch(state.matchId, {
-    type: 'GAME_OVER',
-    matchId: state.matchId,
-    winner,
-    reason: 'timeout',
-    pgn,
-  });
-
-  await matchesDb.completeGame(state.matchId, winner, pgn);
-  games.delete(state.matchId);
+  await finishMatch(state, winner, 'timeout', pgn);
   console.log(`[gameManager] #${state.matchId} ended on time — winner ${winner}`);
 }
 
@@ -474,21 +562,7 @@ async function handleGameOver(state: GameState): Promise<void> {
   }
 
   const pgn = state.chess.pgn();
-
-  // Post result to oracle — triggers on-chain settlement and records the tx
-  // (no-op when unconfigured / dev match).
-  await settleMatch(state.matchId, winner);
-
-  broadcastToMatch(state.matchId, {
-    type: 'GAME_OVER',
-    matchId: state.matchId,
-    winner,
-    reason,
-    pgn,
-  });
-
-  await matchesDb.completeGame(state.matchId, winner, pgn);
-  games.delete(state.matchId);
+  await finishMatch(state, winner, reason, pgn);
 }
 
 export async function handleResignation(
@@ -509,18 +583,7 @@ export async function handleResignation(
   const winner: Winner = playerAddress === state.playerA ? 'PlayerB' : 'PlayerA';
   const pgn = state.chess.pgn();
 
-  await settleMatch(matchId, winner);
-
-  broadcastToMatch(matchId, {
-    type: 'GAME_OVER',
-    matchId,
-    winner,
-    reason: 'resignation',
-    pgn,
-  });
-
-  await matchesDb.completeGame(matchId, winner, pgn);
-  games.delete(matchId);
+  await finishMatch(state, winner, 'resignation', pgn);
   return { success: true };
 }
 
