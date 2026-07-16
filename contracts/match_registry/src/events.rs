@@ -50,3 +50,15 @@ pub fn match_completed(env: &Env, match_id: u64) {
     env.events()
         .publish((Symbol::new(env, "MatchCompleted"),), (match_id,));
 }
+
+/// `MatchPendingFinalization(match_id)` — result submitted, challenge window running.
+pub fn match_pending_finalization(env: &Env, match_id: u64) {
+    env.events()
+        .publish((Symbol::new(env, "MatchPendingFinalization"),), (match_id,));
+}
+
+/// `MatchDisputed(match_id)` — a party disputed the pending result.
+pub fn match_disputed(env: &Env, match_id: u64) {
+    env.events()
+        .publish((Symbol::new(env, "MatchDisputed"),), (match_id,));
+}

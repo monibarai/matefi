@@ -24,4 +24,8 @@ pub enum Error {
     NotPlayerA = 8,
     /// Match is not in the `Active` state (completion only works on active matches).
     MatchNotActive = 9,
+    /// Match is not in the `PendingFinalization` state.
+    MatchNotPendingFinalization = 10,
+    /// Match is not in the `Disputed` state.
+    MatchNotDisputed = 11,
 }

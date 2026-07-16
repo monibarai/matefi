@@ -16,4 +16,19 @@ pub enum Error {
     /// Winner is PlayerB but the match has no Player B (should be
     /// unreachable for an Active match — defensive check).
     PlayerBMissing = 4,
+    /// No pending result exists for this match (never submitted, or already
+    /// finalized/resolved).
+    NoPendingResult = 5,
+    /// `finalize` called before the challenge window has elapsed.
+    DisputeWindowNotElapsed = 6,
+    /// `dispute` called after the challenge window has already closed.
+    DisputeWindowClosed = 7,
+    /// Match is not in the `Disputed` state (`resolve_dispute` only).
+    NotDisputed = 8,
+    /// Caller is neither Player A, Player B, nor the arbiter.
+    NotAParty = 9,
+    /// Caller is not the configured arbiter.
+    Unauthorized = 10,
+    /// `set_challenge_window`/threshold-style setters require a positive value.
+    InvalidWindow = 11,
 }

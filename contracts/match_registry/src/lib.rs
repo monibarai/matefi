@@ -235,17 +235,52 @@ impl MatchRegistry {
 
     /// Mark match completed. Only the Settlement contract may call
     /// (invoker-contract auth on the stored settlement address).
+    ///
+    /// A result no longer reaches `complete_match` straight from `Active` —
+    /// `Settlement.submit_result` parks it in `PendingFinalization` first, so
+    /// this accepts `PendingFinalization` (normal finalize) or `Disputed`
+    /// (arbiter resolution) instead.
     pub fn complete_match(env: Env, match_id: u64) {
+        get_addr(&env, DataKey::Settlement).require_auth();
+
+        let mut m = get_match(&env, match_id);
+        if m.state != MatchState::PendingFinalization && m.state != MatchState::Disputed {
+            panic_with_error!(&env, Error::MatchNotPendingFinalization);
+        }
+        m.state = MatchState::Completed;
+        put_match(&env, match_id, &m);
+
+        events::match_completed(&env, match_id);
+    }
+
+    /// Settlement has recorded a submitted result; park the match pending the
+    /// dispute-challenge window. Only the Settlement contract may call.
+    pub fn set_pending_finalization(env: Env, match_id: u64) {
         get_addr(&env, DataKey::Settlement).require_auth();
 
         let mut m = get_match(&env, match_id);
         if m.state != MatchState::Active {
             panic_with_error!(&env, Error::MatchNotActive);
         }
-        m.state = MatchState::Completed;
+        m.state = MatchState::PendingFinalization;
         put_match(&env, match_id, &m);
 
-        events::match_completed(&env, match_id);
+        events::match_pending_finalization(&env, match_id);
+    }
+
+    /// A party disputed the pending result within the challenge window. Only
+    /// the Settlement contract may call.
+    pub fn set_disputed(env: Env, match_id: u64) {
+        get_addr(&env, DataKey::Settlement).require_auth();
+
+        let mut m = get_match(&env, match_id);
+        if m.state != MatchState::PendingFinalization {
+            panic_with_error!(&env, Error::MatchNotPendingFinalization);
+        }
+        m.state = MatchState::Disputed;
+        put_match(&env, match_id, &m);
+
+        events::match_disputed(&env, match_id);
     }
 }
 

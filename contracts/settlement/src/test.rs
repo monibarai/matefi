@@ -2,12 +2,16 @@
 #![allow(dead_code)]
 extern crate std;
 
-use soroban_sdk::{testutils::Address as _, token, Address, Env, Error as SdkError};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger as _},
+    token, Address, Bytes, Env, Error as SdkError,
+};
 
 use crate::errors::Error;
-use crate::state::Winner;
-use crate::{Settlement, SettlementClient};
+use crate::state::{DisputeOutcome, Winner};
+use crate::{Settlement, SettlementClient, DEFAULT_CHALLENGE_WINDOW_SECS};
 use escrow_vault::{EscrowVault, EscrowVaultClient};
+use match_registry::state::MatchState;
 use match_registry::{MatchRegistry, MatchRegistryClient};
 use oracle_gateway::{OracleGateway, OracleGatewayClient};
 use prediction_pool::{PredictionPool, PredictionPoolClient};
@@ -31,6 +35,7 @@ struct Setup<'a> {
     usdc_admin: token::StellarAssetClient<'a>,
     relayer: Address,
     treasury: Address,
+    arbiter: Address,
     player_a: Address,
     player_b: Address,
 }
@@ -60,6 +65,7 @@ fn setup(env: &Env) -> Setup<'_> {
 
     let relayer = Address::generate(env);
     let treasury = Address::generate(env);
+    let arbiter = Address::generate(env);
     let player_a = Address::generate(env);
     let player_b = Address::generate(env);
 
@@ -88,6 +94,7 @@ fn setup(env: &Env) -> Setup<'_> {
         &registry_id,
         &oracle_id,
         &treasury,
+        &arbiter,
     );
 
     Setup {
@@ -101,6 +108,7 @@ fn setup(env: &Env) -> Setup<'_> {
         usdc_admin,
         relayer,
         treasury,
+        arbiter,
         player_a,
         player_b,
     }
@@ -114,6 +122,21 @@ fn create_active_match(s: &Setup, bet_each: i128, match_id: u64) {
     s.registry.join_match(&match_id, &s.player_b);
 }
 
+/// Advance the ledger past the challenge window.
+fn advance_past_window(s: &Setup) {
+    s.env.ledger().with_mut(|li| {
+        li.timestamp += DEFAULT_CHALLENGE_WINDOW_SECS + 1;
+    });
+}
+
+/// Submit a result and finalize it in one step (the common case in tests
+/// that only care about the payout, not the dispute window itself).
+fn submit_and_finalize(s: &Setup, match_id: u64, winner: Winner) {
+    s.settlement.submit_result(&match_id, &winner);
+    advance_past_window(s);
+    s.settlement.finalize(&match_id);
+}
+
 #[test]
 fn initialize_only_once() {
     let env = Env::default();
@@ -121,18 +144,56 @@ fn initialize_only_once() {
     let dummy = Address::generate(&env);
     let res = s
         .settlement
-        .try_initialize(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+        .try_initialize(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
     assert_eq!(res, Err(Ok(void_err(Error::AlreadyInitialized))));
 }
 
 #[test]
-fn execute_player_a_wins_no_trading() {
+fn submit_result_parks_match_pending_finalization() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::PendingFinalization);
+    // No funds moved yet.
+    assert_eq!(s.usdc.balance(&s.player_a), 0);
+    assert_eq!(s.usdc.balance(&s.escrow.address), 200 * USDC);
+
+    let pending = s.settlement.get_pending_result(&1).unwrap();
+    assert_eq!(pending.winner, Winner::PlayerA);
+}
+
+#[test]
+fn finalize_before_window_elapses_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    let res = s.settlement.try_finalize(&1);
+    assert_eq!(res, Err(Ok(void_err(Error::DisputeWindowNotElapsed))));
+}
+
+#[test]
+fn finalize_without_pending_result_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    let res = s.settlement.try_finalize(&1);
+    assert_eq!(res, Err(Ok(void_err(Error::NoPendingResult))));
+}
+
+#[test]
+fn finalize_player_a_wins_no_trading() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 500 * USDC, 1);
 
-    // No traders — pure player prize pool
-    s.settlement.execute(&1, &Winner::PlayerA);
+    submit_and_finalize(&s, 1, Winner::PlayerA);
 
     // player_prize = (500+500)*0.97 = 970 USDC
     let player_prize = 970 * USDC;
@@ -141,15 +202,19 @@ fn execute_player_a_wins_no_trading() {
     assert_eq!(s.usdc.balance(&s.player_a), player_prize);
     assert_eq!(s.usdc.balance(&s.treasury), protocol_fee);
     assert_eq!(s.usdc.balance(&s.escrow.address), 0);
+
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::Completed);
+    assert!(s.settlement.get_pending_result(&1).is_none());
 }
 
 #[test]
-fn execute_player_b_wins_no_trading() {
+fn finalize_player_b_wins_no_trading() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 500 * USDC, 1);
 
-    s.settlement.execute(&1, &Winner::PlayerB);
+    submit_and_finalize(&s, 1, Winner::PlayerB);
 
     let player_prize = 970 * USDC;
     assert_eq!(s.usdc.balance(&s.player_b), player_prize);
@@ -158,23 +223,21 @@ fn execute_player_b_wins_no_trading() {
 }
 
 #[test]
-fn execute_draw_refunds_both_players() {
+fn finalize_draw_refunds_both_players() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 500 * USDC, 1);
 
-    s.settlement.execute(&1, &Winner::Draw);
+    submit_and_finalize(&s, 1, Winner::Draw);
 
-    // Both get 500 USDC back, no protocol fee on draw player pool
     assert_eq!(s.usdc.balance(&s.player_a), 500 * USDC);
     assert_eq!(s.usdc.balance(&s.player_b), 500 * USDC);
     assert_eq!(s.usdc.balance(&s.escrow.address), 0);
-    // treasury gets 0 on draw (no flywheel bonus since trading volume = 0)
     assert_eq!(s.usdc.balance(&s.treasury), 0);
 }
 
 #[test]
-fn execute_with_trading_flywheel_bonus() {
+fn finalize_with_trading_flywheel_bonus() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 500 * USDC, 1);
@@ -206,7 +269,7 @@ fn execute_with_trading_flywheel_bonus() {
         &(100 * USDC),
     );
 
-    s.settlement.execute(&1, &Winner::PlayerA);
+    submit_and_finalize(&s, 1, Winner::PlayerA);
 
     // trading_volume = 1200 USDC
     // fee_treasury (1%) = 12 USDC
@@ -218,49 +281,32 @@ fn execute_with_trading_flywheel_bonus() {
     let trading_treasury: i128 = 120_000_000; // 12 USDC
 
     assert_eq!(s.usdc.balance(&s.player_a), player_prize);
-    // Treasury receives: trading 1% + player pool 3%
     assert_eq!(s.usdc.balance(&s.treasury), trading_treasury + player_fee);
     assert_eq!(s.usdc.balance(&s.escrow.address), 0);
 
-    // net trading pool = 1164 USDC; since PlayerA won, A-traders can claim
     let net_pool: i128 = 1164 * USDC;
     let payout_a = s
         .pool
         .pay_trader(&1, &trader_a, &prediction_pool::state::Outcome::PlayerA);
-    // trader_a bet 800, pool_a=800, payout = 800*1164/800 = 1164
     assert_eq!(payout_a, net_pool);
     assert_eq!(s.usdc.balance(&trader_a), net_pool);
 
-    // B and Draw traders get nothing
     let res_b = s
         .pool
         .try_pay_trader(&1, &trader_b, &prediction_pool::state::Outcome::PlayerB);
-    assert!(res_b.is_err()); // NotWinningOutcome
+    assert!(res_b.is_err());
 }
 
 #[test]
-fn execute_marks_match_completed() {
+fn submit_result_rejected_when_match_not_active() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 100 * USDC, 1);
 
-    s.settlement.execute(&1, &Winner::PlayerA);
+    submit_and_finalize(&s, 1, Winner::PlayerA);
 
-    let m = s.registry.get_match(&1);
-    assert_eq!(m.state, match_registry::state::MatchState::Completed);
-}
-
-#[test]
-fn execute_rejected_when_match_not_active() {
-    let env = Env::default();
-    let s = setup(&env);
-    create_active_match(&s, 100 * USDC, 1);
-
-    // First settlement OK
-    s.settlement.execute(&1, &Winner::PlayerA);
-
-    // Second settlement on same (now Completed) match must fail
-    let res = s.settlement.try_execute(&1, &Winner::PlayerA);
+    // Second submission on now-Completed match must fail.
+    let res = s.settlement.try_submit_result(&1, &Winner::PlayerA);
     assert_eq!(res, Err(Ok(void_err(Error::MatchNotActive))));
 }
 
@@ -270,25 +316,29 @@ fn full_e2e_via_oracle_flow() {
     let s = setup(&env);
     create_active_match(&s, 200 * USDC, 1);
 
-    // Relayer posts result through oracle (which calls settlement.execute)
+    // Relayer posts result through oracle (which calls settlement.submit_result)
     s.oracle
         .post_result(&1, &oracle_gateway::state::Winner::PlayerA);
 
-    // Settlement completed via oracle → settlement chain
     let m = s.registry.get_match(&1);
-    assert_eq!(m.state, match_registry::state::MatchState::Completed);
+    assert_eq!(m.state, MatchState::PendingFinalization);
+
+    advance_past_window(&s);
+    s.settlement.finalize(&1);
+
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::Completed);
 
     let player_prize = 200 * 2 * USDC * 97 / 100; // 388 USDC
     assert_eq!(s.usdc.balance(&s.player_a), player_prize);
 }
 
 #[test]
-fn execute_draw_with_trading_sends_flywheel_bonus_to_treasury() {
+fn draw_with_trading_sends_flywheel_bonus_to_treasury() {
     let env = Env::default();
     let s = setup(&env);
     create_active_match(&s, 500 * USDC, 1);
 
-    // Add some trading
     let trader = Address::generate(&s.env);
     s.usdc_admin.mint(&trader, &(100 * USDC));
     s.pool.buy_outcome(
@@ -298,20 +348,211 @@ fn execute_draw_with_trading_sends_flywheel_bonus_to_treasury() {
         &(100 * USDC),
     );
 
-    s.settlement.execute(&1, &Winner::Draw);
+    submit_and_finalize(&s, 1, Winner::Draw);
 
-    // Players get deposits back
     assert_eq!(s.usdc.balance(&s.player_a), 500 * USDC);
     assert_eq!(s.usdc.balance(&s.player_b), 500 * USDC);
 
-    // Draw pool trader gets the full net pool (only one on Draw)
     let payout = s
         .pool
         .pay_trader(&1, &trader, &prediction_pool::state::Outcome::Draw);
-    // net pool = 100 * 97% = 97 USDC; 1% to treasury
     assert_eq!(payout, 97 * USDC);
 
-    // Treasury got: 1% of 100 USDC trading = 1 USDC + flywheel bonus (2 USDC) sent to treasury by vault
-    // flywheel bonus on draw is sent to treasury by vault (documented edge case)
-    assert_eq!(s.usdc.balance(&s.treasury), 3 * USDC); // 1% trading + 2% flywheel
+    assert_eq!(s.usdc.balance(&s.treasury), 3 * USDC);
+}
+
+// --- Dispute flow ---
+
+#[test]
+fn dispute_by_player_moves_match_to_disputed() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement.dispute(
+        &1,
+        &s.player_b,
+        &Bytes::from_slice(&env, b"engine-assist suspected"),
+    );
+
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::Disputed);
+
+    let d = s.settlement.get_dispute(&1).unwrap();
+    assert_eq!(d.opened_by, s.player_b);
+
+    // No funds moved.
+    assert_eq!(s.usdc.balance(&s.player_a), 0);
+}
+
+#[test]
+fn dispute_after_window_closed_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    advance_past_window(&s);
+
+    let res = s
+        .settlement
+        .try_dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"too slow"));
+    assert_eq!(res, Err(Ok(void_err(Error::DisputeWindowClosed))));
+}
+
+#[test]
+fn dispute_by_non_party_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    let stranger = Address::generate(&env);
+    let res = s
+        .settlement
+        .try_dispute(&1, &stranger, &Bytes::from_slice(&env, b"reason"));
+    assert_eq!(res, Err(Ok(void_err(Error::NotAParty))));
+}
+
+#[test]
+fn dispute_twice_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"first"));
+
+    let res = s
+        .settlement
+        .try_dispute(&1, &s.player_a, &Bytes::from_slice(&env, b"second"));
+    assert_eq!(res, Err(Ok(void_err(Error::NoPendingResult))));
+}
+
+#[test]
+fn finalize_disputed_match_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"reason"));
+    advance_past_window(&s);
+
+    let res = s.settlement.try_finalize(&1);
+    assert_eq!(res, Err(Ok(void_err(Error::NoPendingResult))));
+}
+
+#[test]
+fn resolve_dispute_uphold_pays_original_winner() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 500 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"reason"));
+    s.settlement
+        .resolve_dispute(&1, &s.arbiter, &DisputeOutcome::Uphold);
+
+    assert_eq!(s.usdc.balance(&s.player_a), 970 * USDC);
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::Completed);
+}
+
+#[test]
+fn resolve_dispute_reverse_pays_new_winner() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 500 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"reason"));
+    s.settlement
+        .resolve_dispute(&1, &s.arbiter, &DisputeOutcome::Reverse(Winner::PlayerB));
+
+    assert_eq!(s.usdc.balance(&s.player_a), 0);
+    assert_eq!(s.usdc.balance(&s.player_b), 970 * USDC);
+}
+
+#[test]
+fn resolve_dispute_void_refunds_both_players() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 500 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_a, &Bytes::from_slice(&env, b"reason"));
+    s.settlement
+        .resolve_dispute(&1, &s.arbiter, &DisputeOutcome::Void);
+
+    assert_eq!(s.usdc.balance(&s.player_a), 500 * USDC);
+    assert_eq!(s.usdc.balance(&s.player_b), 500 * USDC);
+}
+
+#[test]
+fn resolve_dispute_by_non_arbiter_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.player_b, &Bytes::from_slice(&env, b"reason"));
+
+    let res = s
+        .settlement
+        .try_resolve_dispute(&1, &s.player_b, &DisputeOutcome::Uphold);
+    assert_eq!(res, Err(Ok(void_err(Error::Unauthorized))));
+}
+
+#[test]
+fn resolve_dispute_without_dispute_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+
+    let res = s
+        .settlement
+        .try_resolve_dispute(&1, &s.arbiter, &DisputeOutcome::Uphold);
+    assert_eq!(res, Err(Ok(void_err(Error::NotDisputed))));
+}
+
+#[test]
+fn arbiter_may_open_dispute_directly() {
+    let env = Env::default();
+    let s = setup(&env);
+    create_active_match(&s, 100 * USDC, 1);
+
+    s.settlement.submit_result(&1, &Winner::PlayerA);
+    s.settlement
+        .dispute(&1, &s.arbiter, &Bytes::from_slice(&env, b"anti-cheat flag"));
+
+    let m = s.registry.get_match(&1);
+    assert_eq!(m.state, MatchState::Disputed);
+}
+
+#[test]
+fn set_challenge_window_by_arbiter() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    s.settlement.set_challenge_window(&s.arbiter, &7200);
+    assert_eq!(s.settlement.get_challenge_window(), 7200);
+}
+
+#[test]
+fn set_challenge_window_by_non_arbiter_fails() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let res = s.settlement.try_set_challenge_window(&s.player_a, &7200);
+    assert_eq!(res, Err(Ok(void_err(Error::Unauthorized))));
 }

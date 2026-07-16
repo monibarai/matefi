@@ -190,7 +190,7 @@
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-              "function_name": "complete_match",
+              "function_name": "set_disputed",
               "args": [
                 {
                   "u64": "1"
@@ -370,7 +370,7 @@
                     "val": {
                       "vec": [
                         {
-                          "symbol": "Completed"
+                          "symbol": "Disputed"
                         }
                       ]
                     }

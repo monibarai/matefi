@@ -9,14 +9,23 @@ use soroban_sdk::{contracttype, Address};
 /// (`Market.locked`); the registry itself only ever transitions
 /// `Open → Active → Completed` or `Open → Cancelled`. The variant exists here
 /// so the enum is XDR-identical across contracts per the spec.
+///
+/// `PendingFinalization`/`Disputed` support Settlement's challenge-window
+/// dispute flow: a posted result no longer completes the match immediately —
+/// it parks in `PendingFinalization` until the window elapses (→ `Completed`
+/// via `finalize`) or a party disputes it (→ `Disputed` → resolved by the
+/// arbiter into `Completed`). Appended at the end so existing variant
+/// ordinals are unchanged.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchState {
-    Open,      // created, waiting for Player B
-    Active,    // both players joined, game in progress
-    Locked,    // market locked (eval threshold crossed), game still live
-    Completed, // game over, settlement triggered
-    Cancelled, // Player B never joined, Player A refunded
+    Open,                // created, waiting for Player B
+    Active,              // both players joined, game in progress
+    Locked,              // market locked (eval threshold crossed), game still live
+    Completed,           // game over, settlement triggered
+    Cancelled,           // Player B never joined, Player A refunded
+    PendingFinalization, // result submitted, challenge window running
+    Disputed,            // a party disputed the result within the window
 }
 
 /// Per-match record.

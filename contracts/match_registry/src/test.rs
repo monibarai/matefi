@@ -282,6 +282,7 @@ fn complete_match_only_callable_by_settlement() {
     s.usdc_admin.mint(&pb, &(100 * USDC));
     let id = s.registry.create_match(&pa, &(100 * USDC), &600);
     s.registry.join_match(&id, &pb);
+    s.registry.set_pending_finalization(&id);
 
     // Calling complete_match is authorized only when Settlement is the invoker.
     // In tests with mock_all_auths() the auth check is satisfied regardless, so
@@ -290,6 +291,89 @@ fn complete_match_only_callable_by_settlement() {
 
     let m = s.registry.get_match(&id);
     assert_eq!(m.state, MatchState::Completed);
+}
+
+#[test]
+fn complete_match_rejected_when_active() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let pa = Address::generate(&env);
+    let pb = Address::generate(&env);
+    s.usdc_admin.mint(&pa, &(100 * USDC));
+    s.usdc_admin.mint(&pb, &(100 * USDC));
+    let id = s.registry.create_match(&pa, &(100 * USDC), &600);
+    s.registry.join_match(&id, &pb);
+
+    let res = s.registry.try_complete_match(&id);
+    assert_eq!(res, Err(Ok(void_err(Error::MatchNotPendingFinalization))));
+}
+
+#[test]
+fn complete_match_allowed_when_disputed() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let pa = Address::generate(&env);
+    let pb = Address::generate(&env);
+    s.usdc_admin.mint(&pa, &(100 * USDC));
+    s.usdc_admin.mint(&pb, &(100 * USDC));
+    let id = s.registry.create_match(&pa, &(100 * USDC), &600);
+    s.registry.join_match(&id, &pb);
+    s.registry.set_pending_finalization(&id);
+    s.registry.set_disputed(&id);
+
+    s.registry.complete_match(&id);
+
+    let m = s.registry.get_match(&id);
+    assert_eq!(m.state, MatchState::Completed);
+}
+
+#[test]
+fn set_pending_finalization_requires_active() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let pa = Address::generate(&env);
+    s.usdc_admin.mint(&pa, &(100 * USDC));
+    let id = s.registry.create_match(&pa, &(100 * USDC), &600);
+
+    let res = s.registry.try_set_pending_finalization(&id);
+    assert_eq!(res, Err(Ok(void_err(Error::MatchNotActive))));
+}
+
+#[test]
+fn set_disputed_requires_pending_finalization() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let pa = Address::generate(&env);
+    let pb = Address::generate(&env);
+    s.usdc_admin.mint(&pa, &(100 * USDC));
+    s.usdc_admin.mint(&pb, &(100 * USDC));
+    let id = s.registry.create_match(&pa, &(100 * USDC), &600);
+    s.registry.join_match(&id, &pb);
+
+    let res = s.registry.try_set_disputed(&id);
+    assert_eq!(res, Err(Ok(void_err(Error::MatchNotPendingFinalization))));
+}
+
+#[test]
+fn set_disputed_rejects_double_dispute() {
+    let env = Env::default();
+    let s = setup(&env);
+
+    let pa = Address::generate(&env);
+    let pb = Address::generate(&env);
+    s.usdc_admin.mint(&pa, &(100 * USDC));
+    s.usdc_admin.mint(&pb, &(100 * USDC));
+    let id = s.registry.create_match(&pa, &(100 * USDC), &600);
+    s.registry.join_match(&id, &pb);
+    s.registry.set_pending_finalization(&id);
+    s.registry.set_disputed(&id);
+
+    let res = s.registry.try_set_disputed(&id);
+    assert_eq!(res, Err(Ok(void_err(Error::MatchNotPendingFinalization))));
 }
 
 #[test]

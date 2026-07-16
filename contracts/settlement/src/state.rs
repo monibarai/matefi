@@ -24,7 +24,8 @@ pub enum Outcome {
     Draw,
 }
 
-/// Match lifecycle (replica of `match_registry::state::MatchState`).
+/// Match lifecycle (replica of `match_registry::state::MatchState`). Must
+/// stay variant-for-variant identical to the registry's copy.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchState {
@@ -33,6 +34,41 @@ pub enum MatchState {
     Locked,
     Completed,
     Cancelled,
+    PendingFinalization,
+    Disputed,
+}
+
+/// Arbiter's resolution of a disputed match.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum DisputeOutcome {
+    /// The originally submitted result stands.
+    Uphold,
+    /// The result is overturned in favor of the given winner.
+    Reverse(Winner),
+    /// The match is voided — settled as a Draw (both players refunded,
+    /// bettors paid out via the pool's existing draw path). Reuses the
+    /// existing draw-settlement code path rather than adding a bespoke
+    /// refund mechanism to EscrowVault/PredictionPool.
+    Void,
+}
+
+/// A result submitted by the oracle, awaiting the challenge window (or a
+/// dispute) before funds move.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingResult {
+    pub winner: Winner,
+    pub submitted_at: u64,
+}
+
+/// A dispute opened against a pending result.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct DisputeRecord {
+    pub opened_by: Address,
+    pub reason: soroban_sdk::Bytes,
+    pub opened_at: u64,
 }
 
 /// Replica of `match_registry::state::Match` (returned by `get_match`).
@@ -94,8 +130,17 @@ pub enum DataKey {
     Pool,
     /// MatchRegistry contract address.
     Registry,
-    /// OracleGateway contract — the only caller of `execute`.
+    /// OracleGateway contract — the only caller of `submit_result`.
     Oracle,
     /// Treasury account (informational; fee transfers happen in the vaults).
     Treasury,
+    /// Address allowed to resolve disputes (`resolve_dispute`) and update
+    /// dispute config (`set_arbiter`/`set_challenge_window`).
+    Arbiter,
+    /// Challenge window length in seconds (default `DEFAULT_CHALLENGE_WINDOW_SECS`).
+    ChallengeWindow,
+    /// Persistent: pending (unfinalized) result per match id.
+    PendingResult(u64),
+    /// Persistent: dispute record per match id, once opened.
+    Dispute(u64),
 }

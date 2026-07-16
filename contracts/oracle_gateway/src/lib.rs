@@ -43,7 +43,7 @@ pub trait PredictionPoolIface {
 /// Subset of the Settlement interface that the oracle calls.
 #[contractclient(name = "SettlementClient")]
 pub trait SettlementIface {
-    fn execute(env: Env, match_id: u64, winner: Winner);
+    fn submit_result(env: Env, match_id: u64, winner: Winner);
 }
 
 /// Default lock threshold in centipawns (absolute value) — spec §2/§11.
@@ -163,15 +163,17 @@ impl OracleGateway {
         }
     }
 
-    /// Posted by the relayer when the game ends. Triggers the full
-    /// settlement cascade via `Settlement.execute`.
+    /// Posted by the relayer when the game ends. Submits the result to
+    /// `Settlement.submit_result`, which starts the dispute challenge window
+    /// — funds do not move until the window elapses or a dispute is
+    /// resolved (see `contracts/settlement`).
     pub fn post_result(env: Env, match_id: u64, winner: Winner) {
         get_addr(&env, DataKey::Relayer).require_auth();
 
         events::result_posted(&env, match_id, &winner);
 
         let settlement = get_addr(&env, DataKey::Settlement);
-        SettlementClient::new(&env, &settlement).execute(&match_id, &winner);
+        SettlementClient::new(&env, &settlement).submit_result(&match_id, &winner);
     }
 
     /// Admin: update the lock threshold (whitelisted relayer only).
