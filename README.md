@@ -1,6 +1,7 @@
 # MateFi — On-Chain Chess Betting & Prediction Market on Stellar
 
-<img width="2879" height="1486" alt="Screenshot from 2026-07-15 18-05-02" src="https://github.com/user-attachments/assets/e5c43134-7c93-456b-9dc2-79511264f501" />
+<img width="2868" height="1558" alt="Screenshot from 2026-07-17 13-38-35" src="https://github.com/user-attachments/assets/a7706759-1efc-462c-9e79-0895614bb931" />
+
 
 
 <div align="center">
@@ -74,9 +75,9 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 
 <div align="center">
   <img
-    src="https://github.com/user-attachments/assets/cddc2bb9-b702-4d61-aec0-abbdcc9cbd77"
-    alt="Mobile Responsive UI"
-    width="300"
+    src="https://github.com/user-attachments/assets/21d171d8-54d4-45cf-a9a4-de8460f771ec"
+    alt="Screenshot from 2026-07-17 13-18-43"
+    width="250"
   />
 </div>
 
@@ -121,9 +122,9 @@ Contract IDs are wired through `frontend/src/lib/contracts.ts` from `NEXT_PUBLIC
 
 | Resource | Link |
 |----|-----|
-| Live Demo | https://matefi.vercel.app |
-| Relayer API | https://matefi.onrender.com/api/health |
-| Demo Video | ⟨add your demo video link⟩ |
+| Live Demo | [Click Here](https://matefi.vercel.app) |
+| Relayer API | [Click Here](https://matefi.onrender.com/api/health) |
+| Demo Video | [Click Here](https://github.com/monibarai/matefi/) |
 
 ---
 
