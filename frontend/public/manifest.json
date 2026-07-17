@@ -1,0 +1,14 @@
+{
+  "name": "MateFi — On-Chain Chess Betting on Stellar",
+  "short_name": "MateFi",
+  "description": "P2P chess betting fused with a live parimutuel prediction market on Stellar Soroban. USDC only.",
+  "start_url": "/lobby",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
