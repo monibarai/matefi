@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
+import { toast } from '@/hooks/useToast';
 import { createMatch, joinMatch, contractsConfigured } from '@/lib/contracts';
 import { API_URL } from '@/lib/stellar';
 import { usdcToStroops } from '@/lib/usdc';
@@ -123,6 +124,7 @@ export default function CreateMatchPage() {
         setStatus('waiting');
         await waitForActiveMatch(opponentMatch.match_id);
         setStatus('done');
+        toast(`Matched! Joining ${betAmount} USDC game vs an opponent already waiting.`, 'success');
         router.push(`/match/${opponentMatch.match_id}`);
         return;
       }
@@ -133,9 +135,12 @@ export default function CreateMatchPage() {
       setStatus('waiting');
       await waitForMatch(matchId);
       setStatus('done');
+      toast(`Match created — waiting for an opponent to join your ${betAmount} USDC game.`, 'success');
       router.push(`/match/${matchId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed.');
+      const message = err instanceof Error ? err.message : 'Transaction failed.';
+      setError(message);
+      toast(message, 'error');
       setStatus('idle');
     }
   }
