@@ -6,7 +6,13 @@ import { shortAddress, txExplorerUrl } from '@/lib/stellar';
 import { stroopsToUsdc } from '@/lib/usdc';
 import { API_URL } from '@/lib/stellar';
 import { Badge } from '@/components/shared/Badge';
+import { useWallet } from '@/hooks/useWallet';
+import { computeMatchStats } from '@/lib/stats';
 import type { MatchRecord, Winner } from '@/types/match';
+
+/** How many recent rows to pull for the "your record" widget — independent
+ *  of the paginated table below, so the stat isn't limited to one page. */
+const STATS_WINDOW = 200;
 
 const WINNER_LABEL: Record<Winner, string> = {
   PlayerA: 'Player A',
@@ -38,10 +44,12 @@ function formatDuration(start: string | null | undefined, end: string | null | u
 }
 
 export default function HistoryPage() {
+  const { address } = useWallet();
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [statsMatches, setStatsMatches] = useState<MatchRecord[]>([]);
   const PAGE_SIZE = 20;
 
   const fetchHistory = useCallback(async (offset: number) => {
@@ -65,6 +73,32 @@ export default function HistoryPage() {
     void fetchHistory(page * PAGE_SIZE);
   }, [fetchHistory, page]);
 
+  // Independent fetch for the "your record" widget so it isn't capped to
+  // whatever page of the table is currently showing.
+  useEffect(() => {
+    if (!address) {
+      setStatsMatches([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/history?limit=${STATS_WINDOW}&offset=0`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const rows: MatchRecord[] = Array.isArray(data) ? data : data.matches ?? [];
+        if (!cancelled) setStatsMatches(rows);
+      } catch {
+        // stats widget just stays hidden — the table above still works
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const stats = computeMatchStats(statsMatches, address);
+
   return (
     <div className="pt-8 pb-20">
       {/* Header */}
@@ -79,6 +113,47 @@ export default function HistoryPage() {
           ← Lobby
         </Link>
       </div>
+
+      {/* Your record — only meaningful once a wallet is connected and has settled games */}
+      {address && stats.total > 0 && (
+        <div className="panel mb-6 flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
+          <div>
+            <p className="tag">Your Record</p>
+            <p className="mt-1 font-display text-lg font-semibold text-bone">
+              <span className="text-long">{stats.wins}W</span>{' '}
+              <span className="text-short">{stats.losses}L</span>{' '}
+              <span className="text-draw">{stats.draws}D</span>
+            </p>
+          </div>
+          <div>
+            <p className="tag">Win Rate</p>
+            <p className="mt-1 font-display text-lg font-semibold text-bone">{stats.winRate}%</p>
+          </div>
+          <div>
+            <p className="tag">Best Streak</p>
+            <p className="mt-1 font-display text-lg font-semibold text-bone">{stats.bestStreak}W</p>
+          </div>
+          {stats.currentStreak.length > 1 && stats.currentStreak.kind && (
+            <div>
+              <p className="tag">Current Streak</p>
+              <p
+                className={`mt-1 font-display text-lg font-semibold ${
+                  stats.currentStreak.kind === 'win'
+                    ? 'text-long'
+                    : stats.currentStreak.kind === 'loss'
+                      ? 'text-short'
+                      : 'text-draw'
+                }`}
+              >
+                {stats.currentStreak.length}{stats.currentStreak.kind === 'win' ? 'W' : stats.currentStreak.kind === 'loss' ? 'L' : 'D'}
+              </p>
+            </div>
+          )}
+          <p className="ml-auto font-mono text-[10px] text-bone-faint">
+            from your last {stats.total} settled game{stats.total === 1 ? '' : 's'}
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 rounded-md border border-short/30 bg-short/8 px-4 py-2">
