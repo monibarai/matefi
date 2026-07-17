@@ -5,50 +5,50 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // "chess x trading terminal" palette
+        // "pixel-terminal chess" palette — ported from the PixelCraft design system
         ink: {
-          DEFAULT: '#0A0C10', // page background
-          deep: '#07080B',
-          raise: '#0E1117',
+          DEFAULT: '#0A0A0A', // page background
+          deep: '#050505',
+          raise: '#111111',
         },
         panel: {
-          DEFAULT: '#11141B',
-          2: '#151924',
+          DEFAULT: '#111111',
+          2: '#161616',
         },
         edge: {
-          DEFAULT: '#1E2430',
-          bright: '#2C3545',
+          DEFAULT: '#2D2D2D',
+          bright: '#3D3D3D',
         },
         bone: {
-          DEFAULT: '#E9E6DE', // primary text — old ivory chess piece white
-          dim: '#9AA1B0',
-          faint: '#5C6373',
+          DEFAULT: '#F5F5F0', // primary text
+          dim: '#888888',
+          faint: '#555555',
         },
         lock: {
-          DEFAULT: '#F2A93B', // amber — market lock accent
-          dim: '#8A6420',
-          wash: 'rgba(242, 169, 59, 0.08)',
+          DEFAULT: '#FFD600', // pixel yellow — primary accent / market lock
+          dim: '#8A7A00',
+          wash: 'rgba(255, 214, 0, 0.08)',
         },
         long: {
-          DEFAULT: '#2FBF8F', // emerald — bullish / win
-          wash: 'rgba(47, 191, 143, 0.10)',
+          DEFAULT: '#4ADE80', // green — bullish / win
+          wash: 'rgba(74, 222, 128, 0.10)',
         },
         short: {
-          DEFAULT: '#E25A6B', // rose — bearish / loss
-          wash: 'rgba(226, 90, 107, 0.10)',
+          DEFAULT: '#FF6B35', // orange-red — bearish / loss
+          wash: 'rgba(255, 107, 53, 0.10)',
         },
         draw: {
           DEFAULT: '#8B93A8', // slate — draw outcome
         },
       },
       fontFamily: {
-        display: ['var(--font-display)', 'serif'],
+        display: ['var(--font-display)', 'sans-serif'],
         sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         panel: '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 12px 32px -16px rgba(0,0,0,0.8)',
-        glow: '0 0 24px -6px rgba(242, 169, 59, 0.35)',
+        glow: '0 0 24px -6px rgba(255, 214, 0, 0.35)',
       },
       animation: {
         'pulse-dot': 'pulse-dot 1.6s ease-in-out infinite',
