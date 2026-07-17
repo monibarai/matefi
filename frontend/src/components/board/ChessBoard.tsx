@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess, type Square } from 'chess.js';
 import type { PlayerColor } from '@/types/match';
+import {
+  isSoundEnabled,
+  playCaptureSound,
+  playCheckSound,
+  playGameEndSound,
+  playMoveSound,
+  toggleSound,
+} from '@/lib/sound';
 
 interface ChessBoardProps {
   fen: string;
@@ -13,15 +21,15 @@ interface ChessBoardProps {
   onMove: (uci: string) => Promise<void> | void;
 }
 
-// Highlight styles (theme "lock" orange = 242,169,59).
-const SELECTED_BG = 'rgba(242, 169, 59, 0.45)';
-const LAST_FROM_BG = 'rgba(242, 169, 59, 0.22)';
-const LAST_TO_BG = 'rgba(242, 169, 59, 0.34)';
+// Highlight styles (theme "lock" pixel-yellow = 255,214,0).
+const SELECTED_BG = 'rgba(255, 214, 0, 0.45)';
+const LAST_FROM_BG = 'rgba(255, 214, 0, 0.22)';
+const LAST_TO_BG = 'rgba(255, 214, 0, 0.34)';
 const CHECK_BG =
-  'radial-gradient(circle, rgba(229,57,53,0.85) 0%, rgba(229,57,53,0.45) 55%, transparent 72%)';
-const MOVE_DOT = 'radial-gradient(circle, rgba(242,169,59,0.55) 24%, transparent 26%)';
+  'radial-gradient(circle, rgba(255,107,53,0.85) 0%, rgba(255,107,53,0.45) 55%, transparent 72%)';
+const MOVE_DOT = 'radial-gradient(circle, rgba(255,214,0,0.55) 24%, transparent 26%)';
 const CAPTURE_RING =
-  'radial-gradient(circle, transparent 64%, rgba(242,169,59,0.6) 65%, rgba(242,169,59,0.6) 84%, transparent 85%)';
+  'radial-gradient(circle, transparent 64%, rgba(255,214,0,0.6) 65%, rgba(255,214,0,0.6) 84%, transparent 85%)';
 
 export function ChessBoardComponent({
   fen,
@@ -34,6 +42,10 @@ export function ChessBoardComponent({
   const [lastMoveSq, setLastMoveSq] = useState<{ from: string; to: string } | null>(null);
   const [moveFrom, setMoveFrom] = useState<Square | null>(null);
   const [optionSquares, setOptionSquares] = useState<Record<string, React.CSSProperties>>({});
+  const [soundOn, setSoundOn] = useState(true);
+  const prevFenRef = useRef(fen);
+
+  useEffect(() => setSoundOn(isSoundEnabled()), []);
 
   // Derive legal moves / turn for highlighting and gating.
   const chess = useMemo(() => {
@@ -41,8 +53,26 @@ export function ChessBoardComponent({
   }, [fen]);
 
   // Reset selection + last-move highlight whenever the position changes
-  // externally (our own move confirmed, or the opponent moved).
+  // externally (our own move confirmed, or the opponent moved), and play a
+  // sound that reflects what actually happened — capture, check, or mate
+  // take priority over a plain move so both players hear the same thing
+  // regardless of who made it.
   useEffect(() => {
+    const prevFen = prevFenRef.current;
+    if (prevFen !== fen) {
+      try {
+        const prevPieces = new Chess(prevFen).board().flat().filter(Boolean).length;
+        const nextChess = new Chess(fen);
+        const nextPieces = nextChess.board().flat().filter(Boolean).length;
+        if (nextChess.isCheckmate()) playGameEndSound();
+        else if (nextChess.inCheck()) playCheckSound();
+        else if (nextPieces < prevPieces) playCaptureSound();
+        else playMoveSound();
+      } catch {
+        // malformed intermediate FEN during a live update — skip the cue
+      }
+    }
+    prevFenRef.current = fen;
     setLastMoveSq(null);
     setMoveFrom(null);
     setOptionSquares({});
@@ -187,6 +217,14 @@ export function ChessBoardComponent({
 
   return (
     <div className="relative w-full max-w-[640px]">
+      <button
+        type="button"
+        onClick={() => setSoundOn(toggleSound())}
+        aria-label={soundOn ? 'Mute board sounds' : 'Unmute board sounds'}
+        className="absolute -top-9 right-0 z-10 flex h-7 w-7 items-center justify-center border border-edge bg-panel font-mono text-xs text-bone-faint hover:border-edge-bright hover:text-bone transition-colors"
+      >
+        {soundOn ? '♪' : '✕'}
+      </button>
       <Chessboard
         id={`board-${matchId}`}
         position={fen}
@@ -198,10 +236,11 @@ export function ChessBoardComponent({
         customSquareStyles={customSquareStyles}
         areArrowsAllowed
         animationDuration={150}
-        customDarkSquareStyle={{ backgroundColor: '#2d3748' }}
-        customLightSquareStyle={{ backgroundColor: '#e2d5bb' }}
+        customDarkSquareStyle={{ backgroundColor: '#1A1A1A' }}
+        customLightSquareStyle={{ backgroundColor: '#2D2D2D' }}
         customBoardStyle={{
-          borderRadius: '6px',
+          borderRadius: '0px',
+          border: '2px solid #2D2D2D',
           boxShadow: '0 4px 32px -8px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.04) inset',
         }}
       />
