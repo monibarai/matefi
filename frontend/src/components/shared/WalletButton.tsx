@@ -1,12 +1,34 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useMounted } from '@/hooks/useMounted';
+import { toast } from '@/hooks/useToast';
 import { shortAddress } from '@/lib/stellar';
 
 export function WalletButton() {
   const mounted = useMounted();
   const { address, connecting, error, connect, disconnect } = useWallet();
+
+  // Fire a toast only on a genuine state transition triggered by this
+  // session (connecting -> connected, or a fresh error) — not on the
+  // silent rehydration of a persisted address when the page first loads.
+  const wasConnecting = useRef(false);
+  const lastError = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (wasConnecting.current && !connecting && address) {
+      toast(`Wallet connected — ${shortAddress(address)}`, 'success');
+    }
+    wasConnecting.current = connecting;
+  }, [connecting, address]);
+
+  useEffect(() => {
+    if (error && error !== lastError.current) {
+      toast(error, 'error');
+    }
+    lastError.current = error;
+  }, [error]);
 
   if (!mounted) {
     return (
@@ -16,17 +38,15 @@ export function WalletButton() {
 
   if (address) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="hidden rounded-md border border-long/30 bg-long/5 px-2.5 py-1 font-mono text-[11px] text-long sm:inline-block">
-          {shortAddress(address)}
-        </span>
-        <button
-          onClick={() => void disconnect()}
-          className="btn-ghost py-1.5 text-[11px]"
-        >
-          Disconnect
-        </button>
-      </div>
+      <button
+        onClick={() => {
+          void disconnect();
+          toast('Wallet disconnected', 'info');
+        }}
+        className="btn-ghost py-1.5 text-[11px]"
+      >
+        Disconnect
+      </button>
     );
   }
 
