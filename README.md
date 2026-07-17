@@ -892,7 +892,7 @@ CI/CD secrets (GitHub Actions): `STELLAR_SECRET_KEY` (only for a manual contract
 
 **Live deployments:** frontend → https://matefi.vercel.app · relayer API → https://matefi.onrender.com/api/health
 
-**Test evidence:** 89 passing contract tests + 33 passing frontend tests (§20).
+**Test evidence:** 89 passing contract tests + 44 passing frontend tests (§20).
 **Build evidence:** `npm run build` prerenders all routes; `cargo build --target wasm32v1-none --release` produces 5 contract wasms.
 
 > **Pending redeploy:** the `settlement` and `match_registry` addresses above predate the dispute-resolution state machine (§16.1) — their `initialize` signature/behavior changed (`settlement` now takes an `arbiter` param). Run `scripts/deploy-all.sh` (or `init-contracts.sh` against fresh IDs) to redeploy those two contracts, then update this table, `docs/contract-addresses.json`, the GitHub repo Variables (`NEXT_PUBLIC_SETTLEMENT_ID`/`NEXT_PUBLIC_MATCH_REGISTRY_ID`), Render's relayer env vars, and `NEXT_PUBLIC_ARBITER_ADDRESS`.
@@ -901,10 +901,13 @@ CI/CD secrets (GitHub Actions): `STELLAR_SECRET_KEY` (only for a manual contract
 
 ## 26. User Feedback Implementation
 
-The product went through a round of hands-on user feedback. Each row maps the feedback received to the concrete change shipped for it and the commit that contains that change.
+The product went through multiple rounds of hands-on user feedback. Each row maps the feedback received to the concrete change shipped for it and the commit range that contains that change.
 
 | # | User Feedback | Implementation | Commit |
 |---|---|---|---|
 | 1 | Reviewer noted the resubmission showed no meaningful new features since the June version — recent commits were infra/docs only (Mongo migration, CI, deploy pipeline, README updates), not product changes. | Shipped two real product features addressing the project's own §16 "Known Limitations" list: **anti-cheat detection** (per-move Stockfish move-matching, suspicion flagging — §16.1) and **dispute resolution** (challenge window + player/arbiter dispute flow replacing instant atomic settlement — §16.1), across all three layers: `contracts/settlement` + `contracts/match_registry` (new state machine, 89 passing contract tests), the relayer (`chess/engine.ts`, `chess/gameManager.ts`, `jobs/disputeWindowKeeper.ts`, new API routes), and the frontend (`/admin/disputes`, flagged badges, dispute UI). | [`9454cec`..`35530a6`](https://github.com/monibarai/matefi/compare/4824d5f...35530a6) |
+| 2 | Same feedback recurred on the next review pass — no new features since the last submission. | Shipped a real marketing landing page (animated hero, 9 content sections sourced from the project's own contracts and mechanics) at `/`, moved the match lobby to `/lobby`; a full visual retheme to a sharper pixel-terminal palette (chessboard highlights included); synthesized Web-Audio move/capture/check/checkmate sound effects with a mute toggle; a global toast notification system wired into wallet connect/disconnect and create-match outcomes; a "Your Record" stats widget on the history page (win rate, streaks) backed by 11 new unit tests (33 → 44 passing frontend tests); the real brand knight logo (background removed) replacing the placeholder glyph everywhere, plus a PWA manifest and app icon; and a navbar/wallet privacy fix that stopped exposing the live USDC balance and wallet address in the header. | [`9db49e7`..`e04b7bc`](https://github.com/monibarai/matefi/compare/d735c7b...e04b7bc) |
 
 ---
+
+
